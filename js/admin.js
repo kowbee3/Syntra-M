@@ -59,15 +59,32 @@
   function log(action, target, level) {
     D.audit.unshift({ ts: Date.now(), actor: 'me', action: action, target: target || '', device: 'This computer', level: level });
   }
+  // ---- Unit scope: an Admin only sees and manages their own unit and the units under it
+  function accUnit(a) { var u = D.users[a.id]; return u ? u.unitId : a.unitId; }
+  function inScope(a) { return a.id === 'me' || X.canManageUnit(accUnit(a)); }
+  function scopedAccounts() { return D.accounts.filter(inScope); }
+  function scopeLabel() {
+    var sc = X.myScope();
+    return sc === null ? 'All units' : X.unitName(sc) + (Object.keys(D.units).some(function (id) { return D.units[id].parent === sc; }) ? ' and the units under it' : '');
+  }
+  function reportInScope(r) {
+    var c = X.getConv(r.convId), m = c && X.findMsg(c, r.msgId);
+    if (X.can('users.admins')) return true;
+    if (c && c.type === 'channel') return X.canManageUnit(c.unit);
+    var sender = m && acc(m.from);
+    return !!(sender && inScope(sender));
+  }
+  function scopedReports() { return D.reports.filter(reportInScope); }
   function pendingCount() {
     if (!X.can('console')) return 0;
-    return D.accounts.filter(function (a) { return a.status === 'pending'; }).length + D.reports.length;
+    return scopedAccounts().filter(function (a) { return a.status === 'pending'; }).length + scopedReports().length;
   }
-  // Admins manage Standard Users only; Super Admins manage everyone but themselves
+  // Admins manage Standard Users in their unit; Super Admins manage everyone but themselves
   function canManage(a) {
-    if (a.id === 'me') return false;
+    if (a.id === 'me' || !inScope(a)) return false;
     return X.can('users.admins') || a.role === 'user';
   }
+  function manageableChannels() { return D.channels.filter(function (c) { return X.canManageChannel(c); }); }
   function roleBadge(r) { return '<span class="role-badge role-' + r + '">' + X.roleLabel(r) + '</span>'; }
   var STATUS = {
     active:    ['ok',   'Active'],
@@ -86,10 +103,10 @@
   // ---------------------------------------------------------
   function navHTML() {
     var counts = {
-      users: D.accounts.filter(function (a) { return a.status === 'pending'; }).length,
-      groups: D.reports.length
+      users: scopedAccounts().filter(function (a) { return a.status === 'pending'; }).length,
+      groups: scopedReports().length
     };
-    return '<li class="list-section">Signed in as ' + X.roleLabel() + '</li>' + sections().map(function (s) {
+    return '<li class="list-section">' + X.roleLabel() + ' · ' + esc(X.myScope() === null ? 'All units' : X.unitName(X.myScope(), true)) + '</li>' + sections().map(function (s) {
       var n = counts[s.id];
       return '<li class="conv admin-nav' + (s.id === current ? ' active' : '') + '" data-admin="' + s.id + '">' +
         '<span class="avatar group admin-ico">' + icon(s.icon) + '</span>' +
@@ -135,20 +152,22 @@
   var VIEWS = {};
 
   VIEWS.overview = function () {
-    var a = D.accounts;
+    var a = scopedAccounts();
     var stats = [
       ['group',  a.filter(function (x) { return x.status === 'active'; }).length + 1, 'Active accounts', 'users'],
       ['user',   a.filter(function (x) { return x.status === 'pending'; }).length, 'Awaiting approval', 'users'],
       ['lock',   a.filter(function (x) { return x.status === 'locked'; }).length, 'Locked devices', 'users'],
-      ['flag',   D.reports.length, 'Reported messages', 'groups']
+      ['flag',   scopedReports().length, 'Reported messages', 'groups']
     ];
-    var html = '<div class="stat-grid">' + stats.map(function (s) {
+    var html = '<div class="a-banner">' + icon('group') + 'You manage: <b>' + esc(scopeLabel()) + '</b></div>' +
+      '<div class="stat-grid">' + stats.map(function (s) {
       return '<button class="stat" data-goto="' + s[3] + '">' + icon(s[0]) + '<b>' + s[1] + '</b><span>' + s[2] + '</span></button>';
     }).join('') + '</div>';
 
     var duties = X.can('system')
       ? ['Everything an Admin can do, for all units', 'Assign and remove Admins', 'Enforce security policy for every user', 'See the full activity log, including system events', 'Send system-wide broadcasts and manage service accounts']
-      : ['Approve account requests and set up temporary access', 'Suspend accounts and remote-lock lost devices', 'Create channels and control who can post', 'Review reported messages', 'View the user activity log'];
+      : ['Approve account requests for ' + X.unitName(X.myScope(), true) + ' and set up temporary access', 'Suspend accounts and remote-lock lost devices in your unit',
+         'Create your unit’s announcement channels and choose who can post', 'Review messages reported in your unit', 'View your unit’s activity log'];
     html += card('What you can do as ' + X.roleLabel(),
       '<ul class="duty-list">' + duties.map(function (d) { return '<li>' + icon('check') + d + '</li>'; }).join('') + '</ul>' +
       '<button class="link-btn" data-guide="roles">' + icon('help') + 'Compare roles in the user guide</button>');
@@ -162,7 +181,7 @@
     var f = VIEWS.users.filter || 'all';
     var q = (VIEWS.users.q || '').toLowerCase();
     var mine = { id: 'me', role: X.getSession().role, status: 'active', device: 'This computer', lastSeen: Date.now() };
-    var list = [mine].concat(D.accounts).filter(function (a) {
+    var list = [mine].concat(scopedAccounts()).filter(function (a) {
       if (f === 'temporary' && !a.temporary) return false;
       if (f !== 'all' && f !== 'temporary' && a.status !== f) return false;
       if (!q) return true;
@@ -195,27 +214,41 @@
           '<span class="u-seen" data-label="Device">' + seen + '</span>' +
           '<span class="u-actions">' + actions + '</span></div>';
       }).join('') + (list.length ? '' : '<div class="list-empty">No accounts match.</div>') + '</div>';
-    if (!X.can('users.admins')) html += '<p class="set-note">As an Admin you manage Standard Users. Admin and Super Admin accounts are managed by the Super Admin.</p>';
+    html = '<div class="a-banner">' + icon('group') + 'Showing accounts in <b>' + esc(scopeLabel()) + '</b></div>' + html;
+    if (!X.can('users.admins')) html += '<p class="set-note">As an Admin you manage Standard Users in your unit. Other units, Admins and Super Admins are managed by the Super Admin.</p>';
     return html;
   };
 
   VIEWS.groups = function () {
-    var convs = D.conversations.filter(function (c) { return c.type === 'group'; }).concat(D.channels);
-    var rows = convs.map(function (c) {
-      var members = c.type === 'channel' ? c.members : c.members.length;
+    var chans = manageableChannels();
+    var chanRows = chans.map(function (c) {
+      var ps = (c.posters || []).map(function (id) { return X.user(id); }).filter(Boolean);
+      var who = !c.readOnly ? 'Everyone can post' : ps.length ? 'Posters: ' + ps.map(function (u) { return X.shortName(u); }).join(', ') : 'No posters chosen yet';
       return '<div class="grow">' + X.avatarHTML(c, 'sm') +
-        '<div class="g-main"><b>' + esc(c.name) + '</b><small>' + (c.type === 'channel' ? 'Channel' : 'Group') + ' · ' + members + ' members' +
-          (c.disappearing ? ' · disappearing on' : '') + '</small></div>' +
-        (c.type === 'channel'
-          ? '<label class="g-toggle"><span>Only admins post</span><span class="switch"><input type="checkbox" data-act="readonly" data-id="' + c.id + '"' + (c.readOnly ? ' checked' : '') + '><span></span></span></label>'
-          : '<span></span>') +
-        '<div class="g-actions"><button class="btn sm" data-act="open-conv" data-id="' + c.id + '">Open</button>' +
+        '<div class="g-main"><b>' + esc(c.name) + '</b><small>' + esc(X.unitName(c.unit, true)) + ' · ' + c.members + ' members · ' + esc(who) + '</small></div>' +
+        '<label class="g-toggle" title="When on, only the chosen people can post"><span>Restricted</span><span class="switch"><input type="checkbox" data-act="readonly" data-id="' + c.id + '"' + (c.readOnly ? ' checked' : '') + '><span></span></span></label>' +
+        '<div class="g-actions"><button class="btn sm" data-act="posters" data-id="' + c.id + '">Who can post</button>' +
+        '<button class="btn sm" data-act="open-conv" data-id="' + c.id + '">Open</button>' +
         '<button class="icon-btn" data-act="archive" data-id="' + c.id + '" title="Archive">' + icon('trash') + '</button></div></div>';
     }).join('');
-    var html = card('Groups & channels', '<div class="glist">' + rows + '</div>',
+    var html = card('Announcement channels · ' + esc(X.myScope() === null ? 'all units' : X.unitName(X.myScope(), true)),
+      '<p class="a-help">Each unit has its own channel. Choose who may post, usually the command team. Posters don’t need to be Admins.</p>' +
+      '<div class="glist">' + (chanRows || '<p class="empty-note">No channels in your unit yet.</p>') + '</div>',
       '<button class="btn sm primary" data-act="new-channel">' + icon('plus') + 'New channel</button>');
 
-    var reports = D.reports.map(function (r) {
+    // user-created groups are not owned by a unit, so only the Super Admin moderates them here
+    if (X.can('users.admins')) {
+      var groups = D.conversations.filter(function (c) { return c.type === 'group'; }).map(function (c) {
+        return '<div class="grow">' + X.avatarHTML(c, 'sm') +
+          '<div class="g-main"><b>' + esc(c.name) + '</b><small>Group · ' + c.members.length + ' members' + (c.disappearing ? ' · disappearing on' : '') + '</small></div><span></span>' +
+          '<div class="g-actions"><button class="btn sm" data-act="open-conv" data-id="' + c.id + '">Open</button>' +
+          '<button class="icon-btn" data-act="archive" data-id="' + c.id + '" title="Archive">' + icon('trash') + '</button></div></div>';
+      }).join('');
+      html += card('Groups', '<div class="glist">' + groups + '</div>');
+    }
+
+    var rs = scopedReports();
+    var reports = rs.map(function (r) {
       var c = X.getConv(r.convId), m = c && X.findMsg(c, r.msgId);
       var sender = m ? X.fullName(X.user(m.from)) : 'Unknown';
       return '<div class="report">' +
@@ -225,13 +258,19 @@
         '<button class="btn sm" data-act="warn" data-id="' + r.id + '">Warn sender</button>' +
         '<button class="btn sm danger" data-act="remove-msg" data-id="' + r.id + '">Remove message</button></div></div>';
     }).join('');
-    html += card('Reported messages' + (D.reports.length ? ' <span class="count">' + D.reports.length + '</span>' : ''),
-      reports || '<p class="empty-note">' + icon('check') + 'Nothing to review.</p>');
+    html += card('Reported messages' + (rs.length ? ' <span class="count">' + rs.length + '</span>' : ''),
+      reports || '<p class="empty-note">' + icon('check') + 'Nothing to review in your unit.</p>');
     return html;
   };
 
   function visibleAudit() {
-    return D.audit.filter(function (e) { return X.can('audit.system') || e.level !== 'system'; });
+    return D.audit.filter(function (e) {
+      if (X.can('audit.system')) return true;
+      if (e.level === 'system') return false;
+      if (e.actor === 'me') return true;
+      var a = acc(e.actor);
+      return !!(a && inScope(a));
+    });
   }
   function auditRows(list) {
     if (!list.length) return '<p class="empty-note">No activity.</p>';
@@ -380,7 +419,8 @@
         var c = X.getConv(id);
         X.setView(c.type === 'channel' ? 'channels' : 'chats');
         X.openConv(id); return;
-      case 'readonly': X.getConv(id).readOnly = el.checked; log(el.checked ? 'Limited posting to admins' : 'Allowed everyone to post', X.getConv(id).name); break;
+      case 'readonly': X.getConv(id).readOnly = el.checked; log(el.checked ? 'Restricted posting to chosen posters' : 'Allowed everyone to post', X.getConv(id).name); X.refreshChat(); break;
+      case 'posters': postersModal(id); return;
       case 'archive':
         var cv = X.getConv(id);
         return ask('Archive “' + cv.name + '”?', 'Members will no longer see it.', 'Archive', 'trash', function () {
@@ -439,7 +479,9 @@
       '<div class="modal-body">' +
         '<div class="field-row"><div class="field"><label>Rank</label><input type="text" id="nuRank" placeholder="SGT"></div>' +
         '<div class="field" style="flex:3"><label>Full name</label><input type="text" id="nuName" placeholder="First Last"></div></div>' +
-        '<div class="field"><label>Unit</label><input type="text" id="nuUnit" placeholder="A Co, 2-14 Signal Bn"></div>' +
+        '<div class="field"><label>Unit</label><select id="nuUnit">' + X.unitsInScope().map(function (id) {
+          return '<option value="' + id + '">' + esc(D.units[id].name) + '</option>';
+        }).join('') + '</select></div>' +
         '<div class="field"><label>Account type</label><select id="nuRole">' + types + '</select></div>' +
         '<div class="set-row"><div class="set-label"><b>Temporary access</b><small>For attached or visiting personnel. Access ends automatically.</small></div>' +
           '<label class="switch"><input type="checkbox" id="nuTemp"><span></span></label></div>' +
@@ -452,7 +494,7 @@
       if (!name) { $('#nuName', m).focus(); return; }
       var a = {
         id: 'n' + Date.now(), name: name, rank: $('#nuRank', m).value.trim().toUpperCase() || 'PVT',
-        unit: $('#nuUnit', m).value.trim() || X.me.unit, color: '#5f6f8f', role: $('#nuRole', m).value,
+        unitId: $('#nuUnit', m).value, unit: D.units[$('#nuUnit', m).value].name, color: '#5f6f8f', role: $('#nuRole', m).value,
         status: 'active', device: 'Pending first sign-in', lastSeen: Date.now()
       };
       if ($('#nuTemp', m).checked) { a.temporary = true; a.expires = Date.now() + parseInt($('#nuDays', m).value, 10) * 86400000; }
@@ -464,17 +506,76 @@
   }
 
   function newChannelModal() {
-    var m = X.openModal('New channel',
-      '<div class="modal-body"><div class="field"><label>Channel name</label><input type="text" id="ncName" placeholder="e.g. Range Control"></div>' +
-      '<div class="set-row"><div class="set-label"><b>Only admins can post</b><small>Everyone else can read and react</small></div><label class="switch"><input type="checkbox" id="ncRo" checked><span></span></label></div></div>',
-      '<button class="btn" data-close>Cancel</button><button class="btn primary" id="ncGo2">Create</button>');
+    var units = X.unitsInScope();
+    var m = X.openModal('New announcement channel',
+      '<div class="modal-body">' +
+        '<div class="field"><label>Unit</label><select id="ncUnit">' + units.map(function (id) {
+          return '<option value="' + id + '">' + esc(D.units[id].name) + '</option>';
+        }).join('') + '</select></div>' +
+        '<div class="field"><label>Channel name</label><input type="text" id="ncName" placeholder="e.g. A Co Announcements"></div>' +
+        '<div class="set-row"><div class="set-label"><b>Restrict posting</b><small>Only the people you choose can post. Everyone in the unit can read and react.</small></div>' +
+          '<label class="switch"><input type="checkbox" id="ncRo" checked><span></span></label></div>' +
+      '</div>',
+      '<button class="btn" data-close>Cancel</button><button class="btn primary" id="ncGo2">Create and choose posters</button>');
+    var unitSel = $('#ncUnit', m), nameIn = $('#ncName', m);
+    var suggest = function () { nameIn.placeholder = D.units[unitSel.value].short + ' Announcements'; };
+    unitSel.addEventListener('change', suggest); suggest();
     $('#ncGo2', m).addEventListener('click', function () {
-      var name = $('#ncName', m).value.trim();
-      if (!name) { $('#ncName', m).focus(); return; }
-      D.channels.push({ id: 'ch' + Date.now(), type: 'channel', name: name, members: 1, admins: ['me'], unread: 0, muted: false, disappearing: 0, color: '#4a5c7a', readOnly: $('#ncRo', m).checked,
-        messages: [{ id: X.uid(), type: 'system', ts: Date.now(), text: 'You created this channel' }] });
-      log('Created channel', name);
+      var unit = unitSel.value;
+      var name = nameIn.value.trim() || D.units[unit].short + ' Announcements';
+      var c = { id: 'ch' + Date.now(), type: 'channel', name: name, unit: unit, posters: [], members: 1, admins: [], unread: 0, muted: false, disappearing: 0,
+        color: '#4a5c7a', readOnly: $('#ncRo', m).checked,
+        messages: [{ id: X.uid(), type: 'system', ts: Date.now(), text: 'You created this channel for ' + D.units[unit].name }] };
+      D.channels.push(c);
+      log('Created channel', name + ' (' + D.units[unit].short + ')');
       X.closeModal(); refreshAll();
+      if (c.readOnly) setTimeout(function () { postersModal(c.id); }, X.motionMs(200));
+    });
+  }
+
+  // Choose who can post in a channel. Anyone in the directory can be a poster
+  // (commanders and staff are often Standard Users); people in the channel's
+  // own unit are listed first.
+  function postersModal(channelId) {
+    var c = X.getConv(channelId);
+    if (!c || !X.canManageChannel(c)) { X.toast(icon('lock') + 'Only ' + X.unitName(c && c.unit, true) + ' admins can change this'); return; }
+    var people = Object.keys(D.users).map(function (k) { return D.users[k]; }).concat([X.me]);
+    var rank = function (u) { return u.unitId === c.unit ? 0 : X.inUnit(c.unit, u.unitId) ? 1 : 2; };   // own unit, higher echelon, others
+    people.sort(function (a, b) { return rank(a) - rank(b) || a.name.localeCompare(b.name); });
+    var groupLabel = ['In ' + X.unitName(c.unit, true), 'Higher echelon', 'Other units'];
+    var last = -1;
+    var rows = people.map(function (u) {
+      var r = rank(u), head = '';
+      if (r !== last) { head = '<div class="pick-head">' + groupLabel[r] + '</div>'; last = r; }
+      var id = u.id === 'me' ? 'me' : u.id;
+      return head + '<label class="pick" data-q="' + esc((X.fullName(u) + ' ' + (u.role || '') + ' ' + u.unit).toLowerCase()) + '">' + X.userAvatar(u, 'sm') +
+        '<div><div class="member-name">' + esc(X.fullName(u)) + (u.id === 'me' ? ' (you)' : '') + '</div><div class="member-sub">' + esc((u.role || '') + ' · ' + (u.callsign || '')) + '</div></div>' +
+        '<input type="checkbox" value="' + id + '"' + ((c.posters || []).indexOf(id) !== -1 ? ' checked' : '') + '></label>';
+    }).join('');
+    var m = X.openModal('Who can post in ' + esc(c.name),
+      '<div class="modal-body">' +
+        '<p class="a-help">Pick the people who publish announcements, usually the command team. They don’t need an Admin account. ' +
+        esc(X.unitName(c.unit, true)) + ' admins can always post.</p>' +
+        '<div class="field"><input type="text" id="psSearch" placeholder="Search name, position or unit"></div>' +
+        '<div class="pick-list" id="psList">' + rows + '</div>' +
+      '</div>',
+      '<span class="ps-count" id="psCount"></span><button class="btn" data-close>Cancel</button><button class="btn primary" id="psSave">Save</button>');
+    var count = function () { var n = $$('#psList input:checked', m).length; $('#psCount', m).textContent = n + ' selected'; };
+    $('#psList', m).addEventListener('change', count); count();
+    $('#psSearch', m).addEventListener('input', function () {
+      var q = this.value.toLowerCase();
+      $$('.pick', m).forEach(function (p) { p.classList.toggle('hidden', p.dataset.q.indexOf(q) === -1); });
+      $$('.pick-head', m).forEach(function (h) { h.classList.toggle('hidden', !!q); });
+    });
+    $('#psSave', m).addEventListener('click', function () {
+      var before = (c.posters || []).slice();
+      var after = $$('#psList input:checked', m).map(function (i) { return i.value; });
+      var name = function (id) { return X.fullName(X.user(id)); };
+      after.filter(function (id) { return before.indexOf(id) === -1; }).forEach(function (id) { log('Gave posting rights in ' + c.name, name(id)); });
+      before.filter(function (id) { return after.indexOf(id) === -1; }).forEach(function (id) { log('Removed posting rights in ' + c.name, name(id)); });
+      c.posters = after;
+      X.closeModal(); refreshAll(); X.refreshChat();
+      X.toast(icon('megaphone') + after.length + ' poster' + (after.length === 1 ? '' : 's') + ' for ' + esc(c.name));
     });
   }
 
@@ -532,6 +633,6 @@
 
   window.SyntraAdmin = {
     navHTML: navHTML, open: open, close: close, refresh: function () { render(); },
-    current: function () { return current; }, pendingCount: pendingCount
+    current: function () { return current; }, pendingCount: pendingCount, postersModal: postersModal
   };
 })();

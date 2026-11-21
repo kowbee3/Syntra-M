@@ -66,7 +66,7 @@
   }
   function applyPersona() {
     var p = D.personas[session.role];
-    ['name', 'rank', 'unit', 'role', 'callsign', 'color'].forEach(function (k) { me[k] = p[k]; });
+    ['name', 'rank', 'unit', 'unitId', 'role', 'callsign', 'color'].forEach(function (k) { me[k] = p[k]; });
     me.username = session.username || p.username;
     var ma = $('#meAvatar');
     ma.style.setProperty('--av', me.color);
@@ -190,7 +190,44 @@
   function lastMsg(c) { return c.messages[c.messages.length - 1]; }
   function lastTs(c) { var m = lastMsg(c); return m ? m.ts : 0; }
   function findMsg(c, id) { return c.messages.filter(function (m) { return m.id === id; })[0]; }
-  function isAdmin(c) { return (c.admins || []).indexOf('me') !== -1 || can('channels.post'); }
+  // ---------------------------------------------------------
+  // Units, Admin scope and channel posting rights
+  //  - Every announcement channel belongs to a unit.
+  //  - An Admin manages their own unit and every unit under it
+  //    (Super Admin: everything). Managers set who may post.
+  //  - Posters can be anyone, e.g. a commander who is a Standard User.
+  //  - Posters of a higher unit's channel may also post in the
+  //    channels of the units below it (battalion → companies).
+  // ---------------------------------------------------------
+  var UNITS = D.units;
+  function unitChain(id) { var out = []; while (id && UNITS[id]) { out.push(id); id = UNITS[id].parent; } return out; }
+  function inUnit(id, scope) { return !!id && unitChain(id).indexOf(scope) !== -1; }   // id is scope or below it
+  function unitName(id, short) { return UNITS[id] ? UNITS[id][short ? 'short' : 'name'] : ''; }
+  function myScope() { return session ? D.personas[session.role].scope : undefined; }
+  function canManageUnit(id) {
+    if (!session || !can('console')) return false;
+    if (can('users.admins')) return true;          // Super Admin: all units
+    return inUnit(id, myScope());
+  }
+  function unitsInScope() {
+    return Object.keys(UNITS).filter(function (id) { return canManageUnit(id); });
+  }
+  function canManageChannel(c) {
+    return !!c && c.type === 'channel' && (canManageUnit(c.unit) || (c.admins || []).indexOf('me') !== -1);
+  }
+  function isPoster(c) { return (c.posters || []).indexOf('me') !== -1; }
+  function canPost(c) {
+    if (!c || !c.readOnly) return true;
+    if (canManageChannel(c) || isPoster(c)) return true;
+    return D.channels.some(function (x) {           // reach down from a higher unit's channel
+      return x !== c && x.unit !== c.unit && isPoster(x) && inUnit(c.unit, x.unit);
+    });
+  }
+  function canSeeChannel(c) {
+    if (can('users.admins')) return true;
+    return unitChain(me.unitId).indexOf(c.unit) !== -1 || canManageChannel(c) || isPoster(c);
+  }
+  function postersOf(c) { return (c.posters || []).map(user).filter(Boolean); }
 
   function avatarHTML(c, cls) {
     cls = cls || '';
@@ -389,7 +426,7 @@
     var html = '';
 
     if (state.view === 'chats' || state.view === 'channels') {
-      var list = state.view === 'chats' ? D.conversations.slice() : D.channels.slice();
+      var list = state.view === 'chats' ? D.conversations.slice() : D.channels.filter(canSeeChannel);
       list = list.filter(function (c) {
         if (state.view === 'chats') {
           var f = state.filter;
@@ -617,15 +654,16 @@
     if (pm) $('#pinnedText').textContent = (pm.text || (pm.file && pm.file.name) || 'Attachment');
 
     // read-only channel
-    var ro = !!(c.readOnly && !isAdmin(c));
+    var ro = !canPost(c);
     $('.composer').classList.toggle('hidden', ro);
     var note = $('#readonlyNote');
     if (ro && !note) {
       note = document.createElement('div');
       note.id = 'readonlyNote'; note.className = 'readonly-note';
-      note.innerHTML = icon('megaphone') + 'Only channel admins can post here';
       $('.composer-wrap').appendChild(note);
     } else if (!ro && note) note.remove();
+    if (ro) note.innerHTML = icon('megaphone') + '<span>Only the people chosen by ' + esc(unitName(c.unit, true)) + ' admins can post here. ' +
+      '<button class="link-btn" data-info-open>See who</button></span>';
 
     $('#messages').classList.toggle('no-av', c.type === 'direct');
     renderReply();
@@ -648,7 +686,7 @@
       var online = c.members.filter(function (id) { return id !== 'me' && users[id] && users[id].status === 'online'; }).length;
       sub.textContent = c.members.length + ' members · ' + (online + 1) + ' online';
     } else {
-      sub.textContent = 'Channel · ' + c.members + ' subscribers';
+      sub.textContent = 'Channel · ' + unitName(c.unit, true) + ' · ' + c.members + ' subscribers';
     }
   }
 
@@ -1172,7 +1210,7 @@
     var menu = $('#ctxMenu');
     $('#ctxReacts').innerHTML = QUICK_REACTS.map(function (e) { return '<button data-ctx-react="' + e + '">' + e + '</button>'; }).join('');
     menu.querySelector('[data-act="pin"]').lastChild.textContent = c.pinnedMsgId === msgId ? 'Unpin' : 'Pin';
-    menu.querySelector('[data-act="reply"]').classList.toggle('hidden', !!(c.readOnly && !isAdmin(c)));
+    menu.querySelector('[data-act="reply"]').classList.toggle('hidden', !canPost(c));
     menu.querySelector('[data-act="copy"]').classList.toggle('hidden', !m.text);
     menu.classList.remove('hidden');
     var w = menu.offsetWidth, h = menu.offsetHeight;
@@ -1219,12 +1257,27 @@
     } else {
       h += '<div class="info-hero">' + avatarHTML(c, 'lg') +
         '<h2>' + esc(c.name) + '</h2>' +
-        '<p>' + (c.type === 'channel' ? 'Channel · ' + c.members + ' subscribers' : 'Group · ' + c.members.length + ' members') + '</p>' +
+        '<p>' + (c.type === 'channel' ? 'Channel · ' + esc(unitName(c.unit)) + ' · ' + c.members + ' subscribers' : 'Group · ' + c.members.length + ' members') + '</p>' +
         '<div class="info-quick">' +
           (c.type === 'group' ? '<button data-info="call">' + icon('phone') + 'Voice</button>' : '') +
           '<button data-info="mute">' + icon(c.muted ? 'bell' : 'bell-off') + (c.muted ? 'Unmute' : 'Mute') + '</button>' +
           '<button data-info="search">' + icon('search') + 'Search</button>' +
         '</div></div>';
+    }
+
+    if (c.type === 'channel') {
+      var ps = postersOf(c);
+      h += '<div class="info-section"><h4>Who can post</h4>' +
+        (c.readOnly
+          ? (ps.length ? ps.map(function (u) {
+              return '<div class="member">' + userAvatar(u) + '<div><div class="member-name">' + esc(u.id === 'me' ? fullName(u) + ' (You)' : fullName(u)) +
+                '</div><div class="member-sub">' + esc(u.role || '') + '</div></div></div>';
+            }).join('') : '<p class="info-note">No posters chosen yet.</p>') +
+            '<p class="info-note">' + esc(unitName(c.unit, true)) + ' admins manage this list' +
+            (c.unit !== 'bn' ? '. Battalion posters can also post here.' : '.') + '</p>'
+          : '<p class="info-note">Everyone in the channel can post.</p>') +
+        (canManageChannel(c) ? '<button class="info-action" data-info="posters">' + icon('edit') + 'Manage who can post</button>' : '') +
+        '</div>';
     }
 
     h += '<div class="info-section"><h4>Privacy</h4>';
@@ -1266,6 +1319,7 @@
       case 'mute': c.muted = !c.muted; renderInfo(); renderList(); toast(icon(c.muted ? 'bell-off' : 'bell') + (c.muted ? 'Notifications muted' : 'Notifications on')); break;
       case 'search': openMsgSearch(); break;
       case 'safety': safetyModal(users[c.userId]); break;
+      case 'posters': if (window.SyntraAdmin) window.SyntraAdmin.postersModal(c.id); break;
       case 'pinconv': c.pinned = el.checked; renderList(); break;
       case 'timer':
         var v = parseInt(el.value, 10);
@@ -1747,6 +1801,8 @@
     });
     $('#sendBtn').addEventListener('click', sendMessage);
     $('#replyCancel').addEventListener('click', function () { state.replyTo = null; renderReply(); });
+    // "See who" on a read-only channel opens the details panel with the poster list
+    $('.composer-wrap').addEventListener('click', function (e) { if (e.target.closest('[data-info-open]')) toggleInfo(true); });
 
     // Popovers
     var togglePop = function (btnSel, popSel) {
@@ -2110,6 +2166,9 @@
     state: state, S: S, D: D, me: me, users: users, user: user, getConv: getConv, convTitle: convTitle, findMsg: findMsg,
     renderList: renderList, openConv: openConv, closeConv: closeConv, setView: setView, leaveAdminPane: leaveAdminPane, pickFile: pickFile,
     lock: lock, signOut: signOut, openGuide: openGuide, toggleTheme: toggleTheme, previewChatHTML: previewChatHTML,
+    unitChain: unitChain, inUnit: inUnit, unitName: unitName, myScope: myScope, canManageUnit: canManageUnit,
+    unitsInScope: unitsInScope, canManageChannel: canManageChannel, canPost: canPost,
+    refreshChat: function () { if (active()) { renderChat(); if (!$('#infoPanel').classList.contains('hidden')) renderInfo(); } },
     pendingAdmin: function () { return window.SyntraAdmin ? window.SyntraAdmin.pendingCount() : 0; }
   };
 

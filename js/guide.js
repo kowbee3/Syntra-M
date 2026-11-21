@@ -81,7 +81,8 @@
           '<h3>Ticks</h3><ul><li>' + icon('clock') + ' Sending</li><li>' + icon('check') + ' Sent</li><li>' + icon('check2') + ' Delivered</li><li><span class="g-read">' + icon('check2') + '</span> Read</li></ul>' +
           '<h3>Attachments</h3><p>Use the paperclip to send a document, a photo or a grid location. Your Super Admin may turn some types off.</p>' +
           '<h3>Find things</h3><p>' + kbd('Ctrl K') + ' searches all chats. ' + kbd('Ctrl F') + ' searches inside the open conversation.</p>' +
-          '<h3>Channels</h3><p>Channels are for announcements. Everyone can read and react, but usually only Admins can post.</p>';
+          '<h3>Channels</h3><p>Every unit has its own announcement channel, for example Battalion Announcements and A Co Announcements. You automatically see the channels of your unit and the units above it. Everyone can read and react; only the people chosen for that channel can post, usually the command team. Open a channel’s details to see <b>Who can post</b>.</p>' +
+          '<p>Posters of a higher unit’s channel (for example the battalion command team) can also post in the channels of the units under it.</p>';
       }
     },
     {
@@ -125,12 +126,13 @@
           ['Messaging, calls, groups and channels', 1, 1, 1],
           ['Personal settings', 1, 1, 1],
           ['Create groups and manage groups you own', 1, 1, 1],
-          ['Post in announcement channels', 0, 1, 1],
-          ['Approve, suspend and reactivate accounts', 0, 'Standard Users', 'Everyone'],
+          ['Post in announcement channels', 'If chosen as a poster', 'Own unit’s channels', 'All channels'],
+          ['Choose who can post in a channel', 0, 'Own unit’s channels', 'All channels'],
+          ['Approve, suspend and reactivate accounts', 0, 'Standard Users in own unit', 'Everyone'],
           ['Temporary accounts for attached personnel', 0, 1, 1],
           ['Remote-lock or wipe lost devices', 0, 1, 1],
           ['Review reported messages', 0, 1, 1],
-          ['Activity log', 0, 'User activity', 'Full, incl. system'],
+          ['Activity log', 0, 'Own unit’s activity', 'Full, incl. system'],
           ['Make or remove Admins', 0, 0, 1],
           ['Security policy (enforced settings, attachments)', 0, 'View only', 1],
           ['System broadcasts and service accounts', 0, 0, 1]
@@ -139,7 +141,7 @@
         return '<h2>Account types</h2><p>Syntra has three account types. Each one includes everything the one before it can do.</p>' +
           '<div class="g-roles">' +
           '<div class="g-role"><span class="role-badge role-user">Standard User</span><p>Everyday messaging and calls. Owns and manages the groups they create.</p></div>' +
-          '<div class="g-role"><span class="role-badge role-admin">Admin</span><p>Unit manager. Looks after Standard User accounts, devices, channels and reported messages.</p></div>' +
+          '<div class="g-role"><span class="role-badge role-admin">Admin</span><p>Unit manager for one unit and the units under it (for example HQ Co). Looks after that unit’s Standard User accounts, devices, announcement channels and reported messages.</p></div>' +
           '<div class="g-role"><span class="role-badge role-superadmin">Super Admin</span><p>System owner. Appoints Admins, sets security policy for everyone and sees the full activity log.</p></div></div>' +
           '<div class="g-table-wrap"><table class="g-table g-matrix"><thead><tr><th>Feature</th><th>Standard User</th><th>Admin</th><th>Super Admin</th></tr></thead><tbody>' +
           rows.map(function (r) { return '<tr><td>' + r[0] + '</td>' + cell(r[1]) + cell(r[2]) + cell(r[3]) + '</tr>'; }).join('') +
@@ -155,7 +157,8 @@
           '<li><b>Approve or deny</b> new account requests.</li>' +
           '<li><b>Add user</b> creates an account. Turn on <b>Temporary access</b> for attached or visiting personnel; it ends automatically.</li>' +
           '<li>Use the ' + icon('more') + ' menu on a row to suspend an account, reset its sign-in, <b>remote-lock</b> a lost device or <b>wipe</b> Syntra from it.</li></ul>' +
-          '<h3>Groups & moderation</h3><p>Create channels, choose whether only admins can post, and archive groups. <b>Reported messages</b> lets you dismiss a report, warn the sender or remove the message for everyone.</p>' +
+          '<h3>Your unit</h3><p>Admins only see and manage their own unit and the units under it; the banner at the top of the console shows which. The Super Admin manages every unit.</p>' +
+          '<h3>Groups & moderation</h3><p><b>New channel</b> creates an announcement channel for one of your units. Turn on <b>Restricted</b> and use <b>Who can post</b> to pick the posters, usually the commander, first sergeant or staff. Posters don’t need an Admin account, and every change is recorded in the activity log. <b>Reported messages</b> lets you dismiss a report, warn the sender or remove the message for everyone.</p>' +
           '<h3>Activity log</h3><p>Shows sign-ins, account changes and other actions. Search it or export it as CSV for an audit.</p>' +
           '<h3>Security policy (Super Admin)</h3><p>Pick a value and switch on <b>Enforce</b> to apply it to every user and lock it in their Settings. You can also block attachment types.</p>' +
           '<h3>System (Super Admin)</h3><p>Make or remove Admins, send a broadcast to all users, and manage service accounts (automated accounts that post alerts).</p>';

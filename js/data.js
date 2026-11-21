@@ -13,8 +13,17 @@
   }
   function minsAgo(m) { return Date.now() - m * 60000; }
 
+  // ---- Unit structure (parent = the unit above). Used to scope Admins and channels.
+  var units = {
+    bn: { id: 'bn', name: '2-14 Signal Bn',        short: 'Battalion', parent: null },
+    hq: { id: 'hq', name: 'HQ Co, 2-14 Signal Bn', short: 'HQ Co',     parent: 'bn' },
+    a:  { id: 'a',  name: 'A Co, 2-14 Signal Bn',  short: 'A Co',      parent: 'bn' },
+    b:  { id: 'b',  name: 'B Co, 2-14 Signal Bn',  short: 'B Co',      parent: 'bn' }
+  };
+
   var me = {
     id: 'me',
+    unitId: 'hq',
     name: 'Alex Morgan',
     rank: 'SSG',
     unit: 'HQ Co, 2-14 Signal Bn',
@@ -25,14 +34,16 @@
   };
 
   var users = {
-    u1: { id: 'u1', name: 'Jordan Hale',    rank: 'CPT', unit: 'A Co, 2-14 Signal Bn', role: 'Company Commander', callsign: 'ALPHA 6',  status: 'online',  color: '#3d6fb4', verified: true },
-    u2: { id: 'u2', name: 'Riley Santos',   rank: 'SFC', unit: 'A Co, 2-14 Signal Bn', role: 'Platoon Sergeant',  callsign: 'ALPHA 27', status: 'away',    color: '#b4693d', verified: true },
-    u3: { id: 'u3', name: 'Casey Nguyen',   rank: '1LT', unit: 'S4, 2-14 Signal Bn',   role: 'Logistics Officer', callsign: 'BUFFALO 4', status: 'online', color: '#8a4fb0', verified: false },
-    u4: { id: 'u4', name: 'Taylor Brooks',  rank: 'SPC', unit: 'HQ Co, 2-14 Signal Bn', role: 'Network Specialist', callsign: 'RELAY 14', status: 'dnd',   color: '#b03d5c', verified: true },
-    u5: { id: 'u5', name: 'Morgan Ellis',   rank: 'MAJ', unit: 'S3, 2-14 Signal Bn',   role: 'Operations Officer', callsign: 'TITAN 3', status: 'offline', color: '#3d8f8f', verified: true },
-    u6: { id: 'u6', name: 'Sam Okafor',     rank: 'SGT', unit: 'B Co, 2-14 Signal Bn', role: 'Team Leader',        callsign: 'BRAVO 21', status: 'online', color: '#6f8f3d', verified: false },
-    u7: { id: 'u7', name: 'Avery Kim',      rank: 'CW2', unit: 'S6, 2-14 Signal Bn',   role: 'Network Technician', callsign: 'RELAY 2', status: 'away',    color: '#5c5cb0', verified: true },
-    u8: { id: 'u8', name: 'Drew Patel',     rank: 'PFC', unit: 'HQ Co, 2-14 Signal Bn', role: 'Radio Operator',    callsign: 'RELAY 19', status: 'offline', color: '#b08a3d', verified: false }
+    u1: { id: 'u1', unitId: 'a', name: 'Jordan Hale',    rank: 'CPT', unit: 'A Co, 2-14 Signal Bn', role: 'Company Commander', callsign: 'ALPHA 6',  status: 'online',  color: '#3d6fb4', verified: true },
+    u2: { id: 'u2', unitId: 'a', name: 'Riley Santos',   rank: 'SFC', unit: 'A Co, 2-14 Signal Bn', role: 'Platoon Sergeant',  callsign: 'ALPHA 27', status: 'away',    color: '#b4693d', verified: true },
+    u3: { id: 'u3', unitId: 'bn', name: 'Casey Nguyen',   rank: '1LT', unit: 'S4, 2-14 Signal Bn',   role: 'Logistics Officer', callsign: 'BUFFALO 4', status: 'online', color: '#8a4fb0', verified: false },
+    u4: { id: 'u4', unitId: 'hq', name: 'Taylor Brooks',  rank: 'SPC', unit: 'HQ Co, 2-14 Signal Bn', role: 'Network Specialist', callsign: 'RELAY 14', status: 'dnd',   color: '#b03d5c', verified: true },
+    u5: { id: 'u5', unitId: 'bn', name: 'Morgan Ellis',   rank: 'MAJ', unit: 'S3, 2-14 Signal Bn',   role: 'Operations Officer', callsign: 'TITAN 3', status: 'offline', color: '#3d8f8f', verified: true },
+    u6: { id: 'u6', unitId: 'b', name: 'Sam Okafor',     rank: 'SGT', unit: 'B Co, 2-14 Signal Bn', role: 'Team Leader',        callsign: 'BRAVO 21', status: 'online', color: '#6f8f3d', verified: false },
+    u7: { id: 'u7', unitId: 'bn', name: 'Avery Kim',      rank: 'CW2', unit: 'S6, 2-14 Signal Bn',   role: 'Network Technician', callsign: 'RELAY 2', status: 'away',    color: '#5c5cb0', verified: true },
+    u9:  { id: 'u9', unitId: 'bn', name: 'Cameron Shaw',  rank: 'LTC', unit: '2-14 Signal Bn', role: 'Battalion Commander', callsign: 'TITAN 6', status: 'online', color: '#7a3d5c', verified: true },
+    u10: { id: 'u10', unitId: 'bn', name: 'Jesse Moreno', rank: 'CSM', unit: '2-14 Signal Bn', role: 'Command Sergeant Major', callsign: 'TITAN 7', status: 'away', color: '#5c7a3d', verified: true },
+    u8: { id: 'u8', unitId: 'hq', name: 'Drew Patel',     rank: 'PFC', unit: 'HQ Co, 2-14 Signal Bn', role: 'Radio Operator',    callsign: 'RELAY 19', status: 'offline', color: '#b08a3d', verified: false }
   };
 
   var conversations = [
@@ -106,16 +117,36 @@
 
   var channels = [
     {
-      id: 'ch1', type: 'channel', name: 'Battalion Announcements', members: 412, admins: ['u5'], unread: 1, muted: false, disappearing: 0, color: '#7a5c2f', readOnly: true,
+      id: 'ch1', type: 'channel', name: 'Battalion Announcements', unit: 'bn', posters: ['u9', 'u10', 'u5'], members: 412, admins: [], unread: 1, muted: false, disappearing: 0, color: '#7a5c2f', readOnly: true,
       messages: [
-        { id: 'mc1-1', from: 'u5', ts: at(2, 8, 0), text: 'Reminder: Annual security training is due by the end of the month. Completion certificates go to S2.' },
+        { id: 'mc1-1', from: 'u9', ts: at(2, 8, 0), text: 'Reminder: Annual security training is due by the end of the month. Completion certificates go to S2.' },
         { id: 'mc1-2', from: 'u5', ts: at(0, 7, 0), text: 'Battalion formation Friday 0700, parade field. Duty uniform.', prec: 'priority' }
       ]
     },
     {
-      id: 'ch2', type: 'channel', name: 'S6 Maintenance Bulletins', members: 58, admins: ['u7'], unread: 0, muted: true, disappearing: 0, color: '#2f5c7a', readOnly: true,
+      id: 'ch2', type: 'channel', name: 'S6 Maintenance Bulletins', unit: 'bn', posters: ['u7'], members: 58, admins: [], unread: 0, muted: true, disappearing: 0, color: '#2f5c7a', readOnly: true,
       messages: [
         { id: 'mc2-1', from: 'u7', ts: at(5, 10, 0), text: 'Firmware 4.2.1 approved for all field radios. Schedule updates through your section NCO.' }
+      ]
+    }
+    ,
+    {
+      id: 'ch3', type: 'channel', name: 'A Co Announcements', unit: 'a', posters: ['u1', 'u2'], members: 128, admins: [], unread: 1, muted: false, disappearing: 0, color: '#3d6fb4', readOnly: true,
+      messages: [
+        { id: 'mc3-1', from: 'u1', ts: at(1, 17, 0), text: 'Weapons maintenance Thursday 1300 at the arms room. All platoons.' },
+        { id: 'mc3-2', from: 'u2', ts: minsAgo(80), text: 'Platoon sergeants: turn in leave forms to the orderly room by 1600.', prec: 'priority' }
+      ]
+    },
+    {
+      id: 'ch4', type: 'channel', name: 'B Co Announcements', unit: 'b', posters: ['u6'], members: 121, admins: [], unread: 0, muted: false, disappearing: 0, color: '#6f8f3d', readOnly: true,
+      messages: [
+        { id: 'mc4-1', from: 'u6', ts: at(2, 9, 30), text: 'Vehicle dispatch moved to 0800 tomorrow.' }
+      ]
+    },
+    {
+      id: 'ch5', type: 'channel', name: 'HQ Co Announcements', unit: 'hq', posters: [], members: 96, admins: [], unread: 0, muted: false, disappearing: 0, color: '#2f6b4f', readOnly: true,
+      messages: [
+        { id: 'mc5-0', type: 'system', ts: at(3, 8, 0), text: 'Channel created. An HQ Co admin can choose who posts here.' }
       ]
     }
   ];
@@ -139,9 +170,10 @@
 
   // ---- Sign-in personas (demo): who "me" becomes for each role
   var personas = {
-    superadmin: { username: 'r.vance',  name: 'Robin Vance', rank: 'CW3', unit: 'S6, 2-14 Signal Bn',    role: 'System Owner',       callsign: 'NETOPS 1', color: '#5c3d8f' },
-    admin:      { username: 'a.morgan', name: 'Alex Morgan', rank: 'SSG', unit: 'HQ Co, 2-14 Signal Bn', role: 'Communications NCO', callsign: 'RELAY 6',  color: '#2f6b4f' },
-    user:       { username: 'j.cruz',   name: 'Jamie Cruz',  rank: 'SPC', unit: 'A Co, 2-14 Signal Bn',  role: 'Radio Operator',     callsign: 'ALPHA 31', color: '#3d7f8f' }
+    // scope: the unit an Admin manages (it and every unit under it). null = everything (Super Admin)
+    superadmin: { username: 'r.vance',  name: 'Robin Vance', rank: 'CW3', unit: 'S6, 2-14 Signal Bn',    unitId: 'bn', scope: null, role: 'System Owner',                     callsign: 'NETOPS 1', color: '#5c3d8f' },
+    admin:      { username: 'a.morgan', name: 'Alex Morgan', rank: 'SSG', unit: 'HQ Co, 2-14 Signal Bn', unitId: 'hq', scope: 'hq', role: 'Communications NCO · HQ Co admin', callsign: 'RELAY 6',  color: '#2f6b4f' },
+    user:       { username: 'j.cruz',   name: 'Jamie Cruz',  rank: 'SPC', unit: 'A Co, 2-14 Signal Bn',  unitId: 'a',  role: 'Radio Operator',                   callsign: 'ALPHA 31', color: '#3d7f8f' }
   };
 
   // ---- Account directory (Admin console). ids u1..u8 map to users above.
@@ -150,13 +182,15 @@
     { id: 'u2', role: 'user',  status: 'active', device: 'Win 11 · LT-4502', lastSeen: minsAgo(25) },
     { id: 'u3', role: 'user',  status: 'active', device: 'Win 11 · LT-3920', lastSeen: minsAgo(8) },
     { id: 'u4', role: 'user',  status: 'active', device: 'Win 10 · WS-0113', lastSeen: minsAgo(60) },
-    { id: 'u5', role: 'admin', status: 'active', device: 'Win 11 · LT-0007', lastSeen: minsAgo(140) },
+    { id: 'u5', role: 'admin', scope: 'bn', status: 'active', device: 'Win 11 · LT-0007', lastSeen: minsAgo(140) },
     { id: 'u6', role: 'user',  status: 'active', device: 'Win 11 · LT-5120', lastSeen: minsAgo(2) },
-    { id: 'u7', role: 'admin', status: 'active', device: 'Win 11 · WS-0201', lastSeen: minsAgo(45) },
+    { id: 'u7', role: 'admin', scope: 'bn', status: 'active', device: 'Win 11 · WS-0201', lastSeen: minsAgo(45) },
+    { id: 'u9', role: 'user', status: 'active', device: 'Win 11 · LT-0001', lastSeen: minsAgo(15) },
+    { id: 'u10', role: 'user', status: 'active', device: 'Win 11 · LT-0002', lastSeen: minsAgo(70) },
     { id: 'u8', role: 'user',  status: 'locked', device: 'Win 10 · LT-2288', lastSeen: at(2, 18, 0), note: 'Device reported lost' },
-    { id: 'x1', name: 'Quinn Rivera', rank: 'PV2', unit: 'A Co, 2-14 Signal Bn', color: '#8f6b3d', role: 'user', status: 'pending', requested: minsAgo(300) },
-    { id: 'x2', name: 'Lee Harmon',   rank: 'CPT', unit: '1-22 IN (attached)',   color: '#3d5c8f', role: 'user', status: 'active', temporary: true, expires: at(-14, 23, 59), device: 'Win 11 · LN-9001', lastSeen: minsAgo(400) },
-    { id: 'x3', name: 'Pat Doyle',    rank: 'SGT', unit: 'B Co, 2-14 Signal Bn', color: '#7a7a7a', role: 'user', status: 'suspended', device: 'Win 11 · LT-3307', lastSeen: at(9, 10, 0) }
+    { id: 'x1', unitId: 'a', name: 'Quinn Rivera', rank: 'PV2', unit: 'A Co, 2-14 Signal Bn', color: '#8f6b3d', role: 'user', status: 'pending', requested: minsAgo(300) },
+    { id: 'x2', unitId: 'a', name: 'Lee Harmon',   rank: 'CPT', unit: '1-22 IN (attached to A Co)',   color: '#3d5c8f', role: 'user', status: 'active', temporary: true, expires: at(-14, 23, 59), device: 'Win 11 · LN-9001', lastSeen: minsAgo(400) },
+    { id: 'x3', unitId: 'b', name: 'Pat Doyle',    rank: 'SGT', unit: 'B Co, 2-14 Signal Bn', color: '#7a7a7a', role: 'user', status: 'suspended', device: 'Win 11 · LT-3307', lastSeen: at(9, 10, 0) }
   ];
 
   // ---- Audit trail. level 'system' entries are visible to the Super Admin only.
@@ -192,6 +226,6 @@
 
   window.SyntraData = {
     me: me, users: users, conversations: conversations, channels: channels, calls: calls, autoReplies: autoReplies,
-    personas: personas, accounts: accounts, audit: audit, reports: reports, serviceAccounts: serviceAccounts
+    units: units, personas: personas, accounts: accounts, audit: audit, reports: reports, serviceAccounts: serviceAccounts
   };
 })();
