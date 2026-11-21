@@ -88,7 +88,7 @@
       '<label class="sp-row" data-label="Animations">' + ico('sparkle', '#8957e5') + label('Animations', on ? 'Smooth transitions and effects' : 'Everything changes instantly') +
         '<span class="switch"><input type="checkbox" data-anim-toggle' + (on ? ' checked' : '') + (locked ? ' disabled' : '') + '><span></span></span></label>' +
       (on ? '<div class="sp-sub-title">Animation speed</div>' + radioRows('animSpeed', SPEED_SUB) : '') +
-      navRow('power', 'Power Saving Mode', 'zap', '#e5873b', motionLabel(), 'Reduce animations instead of turning them off'));
+      navRow('power', 'Power Saving Mode', 'zap', '#e5873b', motionLabel()));
   }
   function statusText(s) { return { online: 'online', away: 'away', dnd: 'do not disturb', offline: 'invisible' }[s] || s; }
   function motionLabel() { var m = S.get('motion'); return m === 'off' ? 'Maximum' : m === 'reduced' ? 'Enabled' : 'Disabled'; }
@@ -127,10 +127,6 @@
         navRow('language', 'Language', 'globe', '#8957e5', 'English') +
         navRow('accessibility', 'Accessibility', 'eye', '#1f9d8f') +
         navRow('shortcuts', 'Keyboard Shortcuts', 'keyboard', '#d29922'));
-      h += card('',
-        (X.can('console') ? actRow('admin', 'Admin Console', 'console', '#5c3d8f') : '') +
-        actRow('guide', 'Syntra Features', 'sparkle', '#2f81f7', { sub: 'The user guide' }) +
-        actRow('bug', 'Report a Bug', 'flag', '#e5873b'));
       h += card('', actRow('signout', 'Sign Out', 'logout', '#e5534b', { danger: true }));
       h += '<p class="sp-version">Syntra Desktop 0.4.0 · front-end prototype</p>';
       return h;
@@ -186,7 +182,7 @@
       var cls = S.isLocked('classification');
       return card('Messages', toggleRow('readReceipts') + toggleRow('typingIndicators')) +
         card('Default disappearing timer' + lockTag('defaultTimer'), radioRows('defaultTimer'), 'Applies to new chats. Change it for one chat in that chat’s details.') +
-        card('Screen lock' + lockTag('autoLock'), radioRows('autoLock') + actRow('lock', 'Lock now', 'lock', '#7d8590', { value: 'Ctrl+L' })) +
+        card('Screen lock' + lockTag('autoLock'), radioRows('autoLock'), 'Lock any time with the lock button or Ctrl+L.') +
         card('Classification marking' + lockTag('classification'), radioRows('classification'),
           cls ? (X.can('policy') ? 'Enforced for everyone. Change it in Admin Console › Security policy.' : 'Set by your Super Admin for this system.') : 'Shown in the banner at the top of the window.') +
         card('Encryption', '<div class="sp-row static">' + ico('lock', '#3fb950') +
@@ -247,8 +243,7 @@
       var subs = { system: 'Follow the Windows “Show animations” setting', full: 'All animations and effects', reduced: 'Fades only, no motion', off: 'No animations at all' };
       var names = { system: 'System default', full: 'Off — full animations', reduced: 'On — reduce animations', off: 'Maximum — no animations' };
       return card('Animations', radioRows('motion', { label: function (o) { return names[o[0]]; }, sub: function (v) { return subs[v]; } }),
-        'Reducing animations saves battery and helps on slower computers.') +
-        (S.get('motion') !== 'off' ? card('Animation speed', radioRows('animSpeed', SPEED_SUB)) : '');
+        'Reducing animations saves battery and helps on slower computers. Speed is set in General Settings › Animations.');
     }
   };
 
@@ -313,8 +308,7 @@
     render: function () {
       return previewCard() +
         card('Display', toggleRow('highContrast') + toggleRow('focusRings')) +
-        animationsCard() +
-        card('Text', sliderRow('fontScale', 'Message Text Size'));
+        card('Related', navRow('general', 'Text size and animations', 'settings', '#6e7681', null, 'In General Settings'));
     }
   };
 
@@ -372,7 +366,7 @@
       : '<header class="sp-head"><button class="icon-btn sp-back" title="' + (id === 'main' ? 'Close' : 'Back') + '">' + icon('back') + '</button>' +
         '<h2>' + p.title + '</h2>' +
         (id === 'main' ? '<button class="icon-btn" data-act="search" title="Search settings">' + icon('search') + '</button>' +
-          '<button class="icon-btn" data-act="more" title="More">' + icon('more') + '</button>' : '') + '</header>';
+          '' : '') + '</header>';
     el.innerHTML = head + '<div class="sp-body">' + p.render() + '</div>';
     return el;
   }
@@ -452,16 +446,6 @@
   // ---------------------------------------------------------
   // Actions
   // ---------------------------------------------------------
-  function moreMenu(btn) {
-    showMenu(btn, [
-      ['export', 'download', 'Export settings'],
-      ['import', 'upload', 'Import settings'],
-      ['resetall', 'reset', 'Reset all settings'],
-      null,
-      ['signout', 'logout', 'Sign out', true]
-    ], function (act) { doAct(act); }, 'right');
-  }
-
   function bugModal() {
     var m = X.openModal('Report a bug',
       '<div class="modal-body"><div class="field"><label>What happened?</label>' +
@@ -479,12 +463,9 @@
   function doAct(act, el) {
     switch (act) {
       case 'search': searchQ = ''; push('search'); break;
-      case 'more': moreMenu(el); break;
-      case 'admin': close(); X.setView('admin'); break;
       case 'guide': X.openGuide('start'); break;
       case 'bug': bugModal(); break;
       case 'signout': X.signOut(); break;
-      case 'lock': close(); X.lock(); break;
       case 'testnotif': X.toast(icon('bell') + '<span><b>Syntra</b> · This is a test notification</span>', 3000); break;
       case 'clearcache':
         X.confirm({ title: 'Clear cache?', message: 'Temporary files are removed. Your messages are not affected.', confirmLabel: 'Clear cache', icon: 'trash' })
@@ -537,11 +518,6 @@
       refresh(); return;
     }
     if ((t = e.target.closest('[data-act]'))) {
-      // keep the opening click from reaching the "click outside closes menus" handler
-      if (t.dataset.act === 'more') {
-        e.stopPropagation();
-        if (menuEl && menuAnchor === t) { closeMenu(); return; }
-      }
       doAct(t.dataset.act, t);
     }
   });
@@ -598,6 +574,7 @@
     m.setAttribute('role', 'menu');
     m.innerHTML = (extraTop || '') + items.map(function (it) {
       if (!it) return '<div class="hb-sep"></div>';
+      if (typeof it === 'string') return it;
       if (it.sub) {
         return '<div class="hb-more"><button class="hb-item" data-sub role="menuitem" aria-haspopup="menu">' + icon(it.icon) + '<span>' + it.label + '</span>' + icon('chev', 'hb-chev') + '</button>' +
           '<div class="hb-menu hb-submenu" role="menu">' + it.sub.map(function (s) {
@@ -641,39 +618,29 @@
     var reduced = S.get('motion') === 'reduced' || S.get('motion') === 'off';
     var me = X.me;
     var top = '<button class="hb-item hb-profile" data-pick="profile" role="menuitem"><span class="avatar xs" style="--av:' + me.color + '">' + X.initials(me.name) + '</span>' +
-      '<span><b>' + esc(X.fullName(me)) + '</b><small>' + X.roleLabel() + '</small></span></button><div class="hb-sep"></div>';
+      '<span><b>' + esc(X.fullName(me)) + '</b><small>' + X.roleLabel() + ' · ' + statusText(me.status) + '</small></span></button><div class="hb-sep"></div>';
+    // Only things that are not already on the left bar (navigation and lock live there)
     var items = [
-      ['saved', 'bookmark', 'Saved Messages'],
-      ['contacts', 'group', 'Directory'],
-      ['calls', 'phone', 'Calls'],
-      X.can('console') ? ['admin', 'console', 'Admin Console', false, X.pendingAdmin() || ''] : null,
       ['settings', 'settings', 'Settings'],
-      { icon: 'more', label: 'More', sub: [
-        ['dark', dark ? 'sun' : 'moon', dark ? 'Disable Dark Mode' : 'Enable Dark Mode'],
-        ['motion', 'zap', reduced ? 'Enable Animations' : 'Reduce Animations'],
-        null,
-        ['guide', 'sparkle', 'Syntra Features'],
-        ['shortcuts', 'keyboard', 'Keyboard Shortcuts'],
-        ['bug', 'flag', 'Report a Bug'],
-        ['lock', 'lock', 'Lock Syntra'],
-        null,
-        ['signout', 'logout', 'Sign Out', true],
-        '<div class="hb-version">Syntra Desktop 0.4.0</div>'
-      ] }
-    ].filter(function (x) { return x !== null || false; });
-    showMenu($('#menuBtn'), items.filter(Boolean), function (act) {
+      ['dark', dark ? 'sun' : 'moon', dark ? 'Disable Dark Mode' : 'Enable Dark Mode'],
+      ['motion', 'zap', reduced ? 'Enable Animations' : 'Reduce Animations'],
+      null,
+      ['guide', 'sparkle', 'Syntra Features'],
+      ['shortcuts', 'keyboard', 'Keyboard Shortcuts'],
+      ['bug', 'flag', 'Report a Bug'],
+      null,
+      ['signout', 'logout', 'Sign Out', true],
+      '<div class="hb-version">Syntra Desktop 0.4.0</div>'
+    ];
+    showMenu($('#menuBtn'), items, function (act) {
       switch (act) {
-        case 'profile': case 'settings': open('main'); break;
-        case 'saved': close(); X.setView('saved'); break;
-        case 'contacts': close(); X.setView('contacts'); break;
-        case 'calls': close(); X.setView('calls'); break;
-        case 'admin': close(); X.setView('admin'); break;
+        case 'profile': open('status'); break;
+        case 'settings': open('main'); break;
         case 'dark': X.toggleTheme(); break;
         case 'motion': S.set('motion', reduced ? 'full' : 'reduced'); X.toast(icon('zap') + (reduced ? 'Animations on' : 'Animations reduced')); break;
         case 'guide': X.openGuide('start'); break;
         case 'shortcuts': open('shortcuts'); break;
         case 'bug': bugModal(); break;
-        case 'lock': X.lock(); break;
         case 'signout': X.signOut(); break;
       }
     }, 'left', top);

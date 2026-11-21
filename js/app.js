@@ -71,7 +71,7 @@
     var ma = $('#meAvatar');
     ma.style.setProperty('--av', me.color);
     ma.textContent = initials(me.name);
-    $('#meBtn').title = fullName(me) + ' · ' + roleLabel();
+    $('#meBtn').title = fullName(me) + ' · ' + roleLabel() + ' — set your status';
     $('#adminRailBtn').classList.toggle('hidden', !can('console'));
   }
 
@@ -1502,6 +1502,7 @@
   // ---------------------------------------------------------
   var idleTimer = null;
   function lock() {
+    if (window.SyntraSettingsPanel) window.SyntraSettingsPanel.closeMenu();
     closeCtx(); closePopovers();
     showEl($('#lockScreen'));
     var inp = $('#pinInput'); inp.value = ''; updatePin();
@@ -1523,6 +1524,8 @@
   // ---------------------------------------------------------
   function setView(v) {
     if (v === 'admin' && !can('console')) return;
+    // switching section always returns the sidebar to that section's list
+    if (window.SyntraSettingsPanel) window.SyntraSettingsPanel.close();
     if (state.view !== v) state.animateList = true;
     var wasAdmin = state.view === 'admin';
     state.view = v;
@@ -1530,6 +1533,8 @@
     $('#searchInput').value = '';
     renderList();
     if (v === 'admin') {
+      toggleInfo(false);           // chat details don't belong next to the console
+      closeCtx(); closePopovers();
       if (!isNarrow()) window.SyntraAdmin.open(window.SyntraAdmin.current() || 'overview');
     } else if (wasAdmin) {
       leaveAdminPane();
@@ -1564,8 +1569,6 @@
   function bind() {
     // Rail
     $$('.rail-btn[data-view]').forEach(function (b) { b.addEventListener('click', function () { setView(b.dataset.view); }); });
-    $('#themeToggle').addEventListener('click', toggleTheme);
-    $('#helpBtn').addEventListener('click', function () { openGuide('start'); });
 
     // Material/Telegram-style ripple on press
     document.addEventListener('pointerdown', function (e) {
@@ -1587,7 +1590,8 @@
     bindLogin();
     $('#lockBtn').addEventListener('click', lock);
     $('#settingsBtn').addEventListener('click', function () { openSettings(); });
-    $('#meBtn').addEventListener('click', function () { openSettings(); });
+    // avatar = your status (Settings itself is the gear above it)
+    $('#meBtn').addEventListener('click', function () { openSettings('status'); });
     $('#newChatBtn').addEventListener('click', newChatModal);
     $('#tipCard').addEventListener('click', function (e) {
       if (e.target.closest('.tip-x')) dismissTip();
@@ -1815,7 +1819,12 @@
       if (e.key === 'F1') { e.preventDefault(); openGuide('start'); return; }
       if (!session) { if (e.key === 'Escape' && modalOpen()) closeModal(); return; }
       if (mod && k === '5' && can('console')) { e.preventDefault(); setView('admin'); }
-      else if (mod && k === 'k') { e.preventDefault(); $('#searchInput').focus(); $('#searchInput').select(); }
+      else if (mod && k === 'k') {
+        e.preventDefault();
+        if (window.SyntraSettingsPanel) window.SyntraSettingsPanel.close();
+        if (state.view === 'admin') setView('chats');
+        $('#searchInput').focus(); $('#searchInput').select();
+      }
       else if (mod && k === 'n') { e.preventDefault(); newChatModal(); }
       else if (mod && k === 'l') { e.preventDefault(); lock(); }
       else if (mod && k === 'd') { e.preventDefault(); toggleTheme(); }

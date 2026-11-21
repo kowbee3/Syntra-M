@@ -2,7 +2,7 @@
    Syntra — built-in user guide
    Content lives in SECTIONS below; add a section by adding an
    entry. Open from anywhere with an element that has
-   data-guide="<section id>", the ? button, or F1.
+   data-guide="<section id>", the ☰ menu › Syntra Features, or F1.
    ========================================================= */
 
 (function () {
@@ -27,7 +27,8 @@
           '<li>Enter your username or DoD ID and your password, or use your CAC / PIV card.</li>' +
           '<li>Tick <b>Keep me signed in</b> only on a computer that is issued to you.</li></ol>' +
           '<h3>The screen</h3><ul>' +
-          '<li><b>Left bar:</b> Chats, Channels, Directory, Calls and Saved. Admins also see the <b>Admin console</b>. At the bottom: this guide, dark mode, lock, settings and your profile.</li>' +
+          '<li><b>Left bar:</b> Chats, Channels, Directory, Calls and Saved. Admins also see the <b>Admin console</b>. At the bottom: lock, settings, and your picture (click it to set your status).</li>' +
+          '<li><b>' + icon('menu') + ' menu</b> (top of the chat list): settings, dark mode, animations, this guide, keyboard shortcuts, report a bug and sign out.</li>' +
           '<li><b>Chat list:</b> your conversations. Pinned chats stay on top. Use the filters to show only unread, direct, group or priority messages.</li>' +
           '<li><b>Conversation:</b> messages, and the message box at the bottom. Click the name at the top to open details.</li></ul>' +
           '<p>On a narrow window or small screen, Syntra shows one panel at a time with a tab bar at the bottom. Use the back arrow to return to your chats.</p>' +
@@ -99,13 +100,13 @@
           '<h3>Screen lock</h3><p>Syntra locks itself after a period of inactivity. Lock it yourself with ' + kbd('Ctrl L') + ' whenever you leave your desk.</p>' +
           '<h3>Classification banner</h3><p>The coloured bar at the top shows the highest classification allowed on this system. Never send information above that level.</p>' +
           '<h3>Lost or stolen computer</h3><p>Tell an Admin straight away. They can remotely lock the device or wipe Syntra’s data from it.</p>' +
-          '<h3>Signing out</h3><p>Open the ' + icon('menu') + ' menu › <b>More</b> › <b>Sign Out</b>, or scroll to the bottom of <b>Settings</b>. If you are locked out of the lock screen, use <b>Forgot PIN? Sign out</b>.</p>';
+          '<h3>Signing out</h3><p>Open the ' + icon('menu') + ' menu › <b>Sign Out</b>, or scroll to the bottom of <b>Settings</b>. If you are locked out of the lock screen, use <b>Forgot PIN? Sign out</b>.</p>';
       }
     },
     {
       id: 'customize', title: 'Customizing Syntra', icon: 'settings',
       html: function () {
-        return '<h2>Customizing Syntra</h2><p>Open Settings from the ' + icon('menu') + ' menu, the gear icon, your avatar, or ' + kbd('Ctrl ,') + '. Settings slide in over your chat list so you can see changes in the open chat straight away. Use ' + icon('search') + ' to search all settings.</p><ul>' +
+        return '<h2>Customizing Syntra</h2><p>Open Settings with the gear icon on the left bar, the ' + icon('menu') + ' menu, or ' + kbd('Ctrl ,') + '. Settings slide in over your chat list; pages that change how chats look show a live preview at the top. Use ' + icon('search') + ' to search all settings.</p><ul>' +
           '<li><b>Notifications and Sounds:</b> alerts, sounds, hiding message text, Flash confirmation.</li>' +
           '<li><b>Data and Storage:</b> storage used, clearing the cache, automatic downloads, and backing up your settings to a file.</li>' +
           '<li><b>Privacy and Security:</b> read receipts, typing indicators, default disappearing timer, screen lock.</li>' +
@@ -113,7 +114,7 @@
           '<li><b>Chat Folders:</b> choose which filters (Unread, Direct, Groups, Priority) appear above your chats.</li>' +
           '<li><b>Emoji and Reactions:</b> large emoji, and the quick reaction used when you double-click a message.</li>' +
           '<li><b>Speakers and Camera</b>, <b>Devices</b> (sign out other sessions), <b>Language</b>, <b>Accessibility</b> and <b>Keyboard Shortcuts</b>.</li></ul>' +
-          '<p>The ' + icon('menu') + ' menu also has quick switches under <b>More</b>: dark mode, reduce animations, lock and sign out.</p>' +
+          '<p>The ' + icon('menu') + ' menu also has quick switches for dark mode and animations.</p>' +
           tip('Settings marked ' + icon('lock') + ' <b>Managed</b> are enforced by your Super Admin and can’t be changed.');
       }
     },
@@ -210,12 +211,14 @@
       if (link) { e.preventDefault(); e.stopPropagation(); show(link.dataset.guide); }
     });
     $('#gSearch', m).addEventListener('input', function () {
-      var q = this.value.trim().toLowerCase(), firstHit = null;
+      var q = this.value.trim().toLowerCase(), firstHit = null, titleHit = null;
       SECTIONS.forEach(function (s) {
         var hit = !q || (s.title + ' ' + s.html().replace(/<[^>]+>/g, ' ')).toLowerCase().indexOf(q) !== -1;
         $('[data-gsec="' + s.id + '"]', m).classList.toggle('hidden', !hit);
         if (hit && !firstHit) firstHit = s.id;
+        if (q && !titleHit && s.title.toLowerCase().indexOf(q) !== -1) titleHit = s.id;   // a matching title wins
       });
+      if (titleHit) firstHit = titleHit;
       $('#gNone', m).classList.toggle('hidden', !!firstHit);
       if (firstHit) show(firstHit);
     });
