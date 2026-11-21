@@ -75,6 +75,21 @@
     return '<section class="sp-card">' + (title ? '<h3 class="sp-card-title">' + title + '</h3>' : '') + rows +
       (note ? '<p class="sp-note">' + note + '</p>' : '') + '</section>';
   }
+  // Sample chat that stays at the top of look-related pages while you scroll
+  function previewCard() {
+    return '<div class="sp-preview-sticky"><div class="sp-preview-box">' + X.previewChatHTML() + '</div>' +
+      '<span class="sp-preview-label">Preview</span></div>';
+  }
+  var SPEED_SUB = { sub: function (v) { return { 0.6: 'Slower, gentler motion', 1: 'Default', 1.6: 'Snappier transitions' }[v] || ''; } };
+  // Animations: one on/off switch + speed, with finer levels under Power Saving Mode
+  function animationsCard() {
+    var on = S.get('motion') !== 'off', locked = S.isLocked('motion');
+    return card('Animations',
+      '<label class="sp-row" data-label="Animations">' + ico('sparkle', '#8957e5') + label('Animations', on ? 'Smooth transitions and effects' : 'Everything changes instantly') +
+        '<span class="switch"><input type="checkbox" data-anim-toggle' + (on ? ' checked' : '') + (locked ? ' disabled' : '') + '><span></span></span></label>' +
+      (on ? '<div class="sp-sub-title">Animation speed</div>' + radioRows('animSpeed', SPEED_SUB) : '') +
+      navRow('power', 'Power Saving Mode', 'zap', '#e5873b', motionLabel(), 'Reduce animations instead of turning them off'));
+  }
   function statusText(s) { return { online: 'online', away: 'away', dnd: 'do not disturb', offline: 'invisible' }[s] || s; }
   function motionLabel() { var m = S.get('motion'); return m === 'off' ? 'Maximum' : m === 'reduced' ? 'Enabled' : 'Disabled'; }
   function sampleTime(fmt) {
@@ -196,10 +211,11 @@
     render: function () {
       var themeNames = { light: 'Day', dark: 'Dark', night: 'Night ops', system: 'System Default' };
       var enter = S.get('enterToSend');
-      return card('Settings',
+      return previewCard() +
+        card('Settings',
           sliderRow('fontScale', 'Message Text Size') +
-          navRow('wallpaper', 'Chat Wallpaper', 'palette', '#e5873b') +
-          navRow('power', 'Power Saving Mode', 'zap', '#8957e5', motionLabel())) +
+          navRow('wallpaper', 'Chat Wallpaper', 'palette', '#e5873b')) +
+        animationsCard() +
         card('Color theme', themeCards() + radioRows('theme', { label: function (o) { return themeNames[o[0]]; },
           sub: function (v) { return v === 'night' ? 'Red on black to protect night vision' : ''; } })) +
         card('Time Format', radioRows('timeFormat', { label: function (o) { return o[0] === '12h' ? '12-hour' : '24-hour'; }, sub: sampleTime })) +
@@ -218,13 +234,10 @@
     title: 'Chat Wallpaper',
     render: function () {
       var e = S.entry('wallpaper'), v = S.get('wallpaper');
-      var preview = '<div class="set-preview sp-preview"><div class="set-preview-chat">' +
-        '<div class="msg-row in first last"><div class="msg-col"><div class="bubble"><span class="b-text">Radio check, how copy?</span><span class="b-meta">' + X.fmtTime(Date.now() - 60000) + '</span></div></div></div>' +
-        '<div class="msg-row out first last"><div class="msg-col"><div class="bubble"><span class="b-text">Loud and clear.</span><span class="b-meta">' + X.fmtTime(Date.now()) + icon('check2', 'read') + '</span></div></div></div></div></div>';
       var tiles = '<div class="wp-tiles sp-wp">' + e.options.map(function (o) {
         return '<button class="wp-tile wp-' + o[0] + (v === o[0] ? ' active' : '') + '" data-wp="' + o[0] + '" data-label="' + o[1] + '"><span>' + o[1] + '</span></button>';
       }).join('') + '</div>';
-      return card('Preview', preview) + card('Choose a background', tiles);
+      return previewCard() + card('Choose a background', tiles);
     }
   };
 
@@ -234,7 +247,8 @@
       var subs = { system: 'Follow the Windows “Show animations” setting', full: 'All animations and effects', reduced: 'Fades only, no motion', off: 'No animations at all' };
       var names = { system: 'System default', full: 'Off — full animations', reduced: 'On — reduce animations', off: 'Maximum — no animations' };
       return card('Animations', radioRows('motion', { label: function (o) { return names[o[0]]; }, sub: function (v) { return subs[v]; } }),
-        'Reducing animations saves battery and helps on slower computers.');
+        'Reducing animations saves battery and helps on slower computers.') +
+        (S.get('motion') !== 'off' ? card('Animation speed', radioRows('animSpeed', SPEED_SUB)) : '');
     }
   };
 
@@ -254,7 +268,7 @@
   PAGES.emoji = {
     title: 'Emoji and Reactions',
     render: function () {
-      return card('Emoji', toggleRow('largeEmoji')) +
+      return previewCard() + card('Emoji', toggleRow('largeEmoji')) +
         card('Quick reaction', radioRows('quickReaction', { label: function (o) { return '<span class="sp-emo">' + o[0] + '</span>' + o[1]; } }),
           'Double-click any message to react with this emoji.');
     }
@@ -297,8 +311,9 @@
   PAGES.accessibility = {
     title: 'Accessibility',
     render: function () {
-      return card('Display', toggleRow('highContrast') + toggleRow('focusRings')) +
-        card('Motion', navRow('power', 'Power Saving Mode', 'zap', '#8957e5', motionLabel())) +
+      return previewCard() +
+        card('Display', toggleRow('highContrast') + toggleRow('focusRings')) +
+        animationsCard() +
         card('Text', sliderRow('fontScale', 'Message Text Size'));
     }
   };
@@ -381,7 +396,7 @@
     if (!fwd) old.style.zIndex = 2;
     var removed = false;
     var rm = function () { if (!removed) { removed = true; old.remove(); } };
-    a.onfinish = rm; setTimeout(rm, dur + 80);
+    a.onfinish = rm; setTimeout(rm, X.motionMs(dur) + 80);
   }
 
   function push(id, find) {
@@ -521,11 +536,19 @@
       $('#mePresence').className = 'presence ' + X.me.status;
       refresh(); return;
     }
-    if ((t = e.target.closest('[data-act]'))) { doAct(t.dataset.act, t); }
+    if ((t = e.target.closest('[data-act]'))) {
+      // keep the opening click from reaching the "click outside closes menus" handler
+      if (t.dataset.act === 'more') {
+        e.stopPropagation();
+        if (menuEl && menuAnchor === t) { closeMenu(); return; }
+      }
+      doAct(t.dataset.act, t);
+    }
   });
   panel.addEventListener('change', function (e) {
     var el = e.target;
     if (el.type === 'checkbox' && el.dataset.key) S.set(el.dataset.key, el.checked);
+    if (el.hasAttribute('data-anim-toggle')) S.set('motion', el.checked ? 'system' : 'off');
   });
   panel.addEventListener('input', function (e) {
     var el = e.target;
@@ -558,8 +581,14 @@
   // ---------------------------------------------------------
   // Main menu (☰)
   // ---------------------------------------------------------
-  var menuEl = null;
-  function closeMenu() { if (menuEl) { var m = menuEl; menuEl = null; m.classList.add('closing'); setTimeout(function () { m.remove(); }, X.motionMs(140)); } }
+  var menuEl = null, menuAnchor = null;
+  function closeMenu() {
+    if (!menuEl) return;
+    var m = menuEl; menuEl = null;
+    if (menuAnchor) menuAnchor.classList.remove('on');
+    menuAnchor = null;
+    m.classList.add('closing'); setTimeout(function () { m.remove(); }, X.motionMs(140));
+  }
 
   // items: [act, icon, label, danger?] or null (separator); returns the element
   function showMenu(anchor, items, onPick, align, extraTop) {
@@ -601,6 +630,8 @@
       if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); anchor.focus(); }
     });
     menuEl = m;
+    menuAnchor = anchor;
+    anchor.classList.add('on');
     setTimeout(function () { var f = $('.hb-item', m); if (f) f.focus({ preventScroll: true }); }, 30);
     return m;
   }

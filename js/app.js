@@ -118,7 +118,26 @@
   // Animation timing that respects the motion setting
   function motionMs(ms) {
     var m = root.dataset.motion;
-    return m === 'off' ? 0 : m === 'reduced' ? Math.min(ms, 120) : ms;
+    return m === 'off' ? 0 : m === 'reduced' ? Math.min(ms, 120) : Math.round(ms / animRate);
+  }
+
+  // Animation speed (Settings › General › Animations). Every CSS animation,
+  // CSS transition and element.animate() call is sped up or slowed down by
+  // setting its playbackRate, so no individual duration needs changing.
+  var animRate = 1;
+  function setRate(e) {
+    if (animRate === 1 || !e.target.getAnimations) return;
+    e.target.getAnimations().forEach(function (a) { if (a.playbackRate !== animRate) a.playbackRate = animRate; });
+  }
+  document.addEventListener('animationstart', setRate, true);
+  document.addEventListener('transitionrun', setRate, true);
+  var nativeAnimate = Element.prototype.animate;
+  if (nativeAnimate) {
+    Element.prototype.animate = function () {
+      var a = nativeAnimate.apply(this, arguments);
+      if (animRate !== 1) a.playbackRate = animRate;
+      return a;
+    };
   }
   function showEl(el) { clearTimeout(el._hideT); el.classList.remove('closing', 'hidden'); }
   function hideEl(el, ms, cb) {
@@ -266,6 +285,7 @@
     root.dataset.contrast = s.highContrast ? 'high' : 'normal';
     root.dataset.focus = s.focusRings ? 'always' : 'auto';
     root.dataset.motion = s.motion === 'system' ? (motionMql.matches ? 'reduced' : 'full') : s.motion;
+    animRate = Number(s.animSpeed) || 1;
 
     var banner = $('#classBanner');
     var labels = { unclassified: 'UNCLASSIFIED', cui: 'CUI', confidential: 'CONFIDENTIAL', secret: 'SECRET', off: '' };
@@ -815,6 +835,23 @@
         '<button data-hover="reply" title="Reply">' + icon('reply') + '</button>' +
         '<button data-hover="more" title="More">' + icon('more') + '</button>' +
       '</div></div>';
+  }
+
+  // Sample conversation for the settings preview. Built with the real message
+  // renderer so it reflects every look setting (layout, bubbles, time format,
+  // avatars, large emoji, wallpaper, accent, text size) without using real messages.
+  function previewChatHTML() {
+    var now = Date.now();
+    var fake = { id: 'preview', type: 'group', disappearing: 0, messages: [
+      { id: 'pv1', from: 'u1', ts: now - 6 * 60000, text: 'Radio check, how copy?' },
+      { id: 'pv3', from: 'me', ts: now - 3 * 60000, text: 'Loud and clear. Moving now.', status: 'read' },
+      { id: 'pv4', from: 'me', ts: now - 2 * 60000, text: '🫡', status: 'read' }
+    ] };
+    var ms = fake.messages;
+    return '<div class="set-preview-chat sp-chat-preview" aria-hidden="true">' + ms.map(function (m, i) {
+      var p = ms[i - 1], n = ms[i + 1];
+      return msgHTML(m, fake, !p || p.from !== m.from, !n || n.from !== m.from, '');
+    }).join('') + '</div>';
   }
 
   // 1–3 emoji and nothing else → shown large (Settings › Emoji and Reactions)
@@ -2057,7 +2094,7 @@
     can: can, roleLabel: roleLabel, getSession: function () { return session; }, ROLES: ROLES, PREC: PREC,
     state: state, S: S, D: D, me: me, users: users, user: user, getConv: getConv, convTitle: convTitle, findMsg: findMsg,
     renderList: renderList, openConv: openConv, closeConv: closeConv, setView: setView, leaveAdminPane: leaveAdminPane, pickFile: pickFile,
-    lock: lock, signOut: signOut, openGuide: openGuide, toggleTheme: toggleTheme,
+    lock: lock, signOut: signOut, openGuide: openGuide, toggleTheme: toggleTheme, previewChatHTML: previewChatHTML,
     pendingAdmin: function () { return window.SyntraAdmin ? window.SyntraAdmin.pendingCount() : 0; }
   };
 

@@ -78,6 +78,8 @@
     { key: 'motion', section: 'accessibility', type: 'segment', label: 'Animations', default: 'system',
       hint: 'System follows your Windows “Show animations” setting',
       options: [['system', 'System'], ['full', 'Full'], ['reduced', 'Reduced'], ['off', 'Off']] },
+    { key: 'animSpeed', section: 'accessibility', type: 'select', label: 'Animation speed', default: 1,
+      options: [[0.6, 'Relaxed'], [1, 'Normal'], [1.6, 'Fast']] },
     { key: 'highContrast', section: 'accessibility', type: 'toggle', label: 'High contrast', default: false,
       hint: 'Stronger borders and text' },
     { key: 'focusRings', section: 'accessibility', type: 'toggle', label: 'Always show focus outlines', default: false,
@@ -124,7 +126,7 @@
     { key: 'autoPhotos', section: 'data', type: 'toggle', label: 'Photos', default: true, hint: 'Download photos automatically' },
     { key: 'autoFiles',  section: 'data', type: 'toggle', label: 'Files',  default: false, hint: 'Download documents automatically' },
     { key: 'autoLimit',  section: 'data', type: 'select', label: 'Maximum file size', default: 5,
-      options: [[1, 'Up to 1 MB'], [5, 'Up to 5 MB'], [15, 'Up to 15 MB'], [50, 'Up to 50 MB']] },
+      options: [[1, 'Up to 1 MB'], [5, 'Up to 5 MB'], [15, 'Up to 15 MB'], [50, 'Up to 50 MB'], [0, 'No restriction']] },
 
     // ---- Speakers and camera
     { key: 'speaker', section: 'media', type: 'select', label: 'Speaker', default: 'default',
