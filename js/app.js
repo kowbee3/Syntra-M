@@ -301,7 +301,7 @@
   function renderList() {
     $('#listTitle').textContent = VIEW_TITLES[state.view];
     $('#filterChips').classList.toggle('hidden', state.view !== 'chats');
-    $('.search').classList.toggle('hidden', state.view === 'admin');
+    $('.sidebar .search').classList.toggle('hidden', state.view === 'admin');
     $('#newChatBtn').classList.toggle('hidden', state.view === 'admin');
     $$('.rail-btn[data-view]').forEach(function (b) { b.classList.toggle('active', b.dataset.view === state.view); });
 
@@ -393,11 +393,15 @@
     }
 
     var ul = $('#convList');
-    ul.innerHTML = html;
-    // staggered entrance only when the list content meaningfully changes (view/filter switch)
-    ul.classList.toggle('stagger', state.animateList);
     if (state.animateList) {
-      Array.prototype.forEach.call(ul.children, function (li, i) { li.style.setProperty('--i', Math.min(i, 14)); });
+      // view/filter switch: rebuild with a staggered entrance
+      ul.innerHTML = html;
+      ul.classList.add('stagger');
+      Array.prototype.forEach.call(ul.children, function (li, i) { li.style.setProperty('--i', Math.min(i, 14)); remember(li); });
+    } else {
+      // live update: patch only what changed and slide reordered chats (like Telegram)
+      ul.classList.remove('stagger');
+      morph(ul, html, { flip: true });
     }
     state.animateList = false;
     updateBadge();
@@ -462,7 +466,7 @@
     $('#msgInput').value = c.draft || '';
     c.draft = '';
     autoGrow();
-    renderChat();
+    renderChat(true);
     renderList();
     if (!$('#infoPanel').classList.contains('hidden')) renderInfo();
 
@@ -478,7 +482,7 @@
       box.innerHTML = skeletonHTML();
       box._loadT = setTimeout(function () {
         if (state.activeId !== c.id) return;
-        renderMessages(); playSwap(); finish();
+        renderMessages(false, true); playSwap(); finish();
       }, 450);
     } else {
       c._loaded = true;
@@ -512,7 +516,8 @@
     }).join('') + '</div>';
   }
 
-  function renderChat() {
+  // opening: true when switching to this chat (jump to the newest message)
+  function renderChat(opening) {
     var c = active(); if (!c) return;
     $('#chatAvatar').innerHTML = avatarHTML(c);
 
@@ -544,7 +549,7 @@
 
     $('#messages').classList.toggle('no-av', c.type === 'direct');
     renderReply();
-    renderMessages();
+    renderMessages(!opening, !!opening);
   }
 
   function renderChatSub() {
@@ -567,20 +572,91 @@
     }
   }
 
-  function renderMessages(keepScroll) {
+  // ---------------------------------------------------------
+  // Keyed DOM patching. Instead of replacing a whole list with
+  // innerHTML (which flickers, restarts animations and loses hover
+  // state), only nodes whose markup changed are touched. Nodes
+  // whose content is unchanged but whose attributes changed (e.g.
+  // the "active" class) are patched in place so CSS transitions run.
+  // ---------------------------------------------------------
+  function keyOf(el) {
+    var d = el.dataset;
+    return d.key || d.id || d.admin || d.savedMsg || (d.call !== undefined ? 'call' + d.call : '') || d.user ||
+      ('t:' + el.className + ':' + el.textContent);   // section headers, empty states
+  }
+  function remember(el) { el._html = el.outerHTML; el._inner = el.innerHTML; }
+  function morph(parent, html, opts) {
+    opts = opts || {};
+    var tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    var next = Array.prototype.slice.call(tpl.content.children);
+    var old = {}, tops = {};
+    Array.prototype.forEach.call(parent.children, function (el) {
+      var k = keyOf(el); if (!k || old[k]) return;
+      old[k] = el;
+      if (opts.flip) tops[k] = el.getBoundingClientRect().top;
+    });
+    var finals = next.map(function (n) {
+      var k = keyOf(n), cur = k && old[k];
+      if (cur) {
+        delete old[k];
+        var nHtml = n.outerHTML;
+        if ((cur._html || cur.outerHTML) === nHtml) return cur;
+        if ((cur._inner !== undefined ? cur._inner : cur.innerHTML) === n.innerHTML && cur.tagName === n.tagName) {
+          // same content, different attributes: patch in place
+          Array.prototype.slice.call(cur.attributes).forEach(function (a) { if (!n.hasAttribute(a.name)) cur.removeAttribute(a.name); });
+          Array.prototype.forEach.call(n.attributes, function (a) { if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value); });
+          remember(cur);
+          return cur;
+        }
+      }
+      remember(n);
+      n._isNew = !cur;
+      return n;
+    });
+    finals.forEach(function (node, i) {
+      var at = parent.children[i];
+      if (at !== node) parent.insertBefore(node, at || null);
+    });
+    while (parent.children.length > finals.length) parent.removeChild(parent.lastElementChild);
+
+    // FLIP: slide items that moved to their new position (chat list reordering)
+    if (opts.flip && root.dataset.motion !== 'off') {
+      var ease = 'cubic-bezier(.2,.8,.2,1)', reduced = root.dataset.motion === 'reduced';
+      finals.forEach(function (node) {
+        if (!node.animate) return;
+        var k = keyOf(node);
+        if (!(k in tops)) {
+          if (node._isNew) node.animate([{ opacity: 0, transform: reduced ? 'none' : 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: ease });
+          return;
+        }
+        var dy = tops[k] - node.getBoundingClientRect().top;
+        if (Math.abs(dy) < 1 || reduced) return;
+        node.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }], { duration: 320, easing: ease });
+      });
+    }
+  }
+
+  function scrollToBottom(box, smooth) {
+    if (smooth && root.dataset.motion !== 'off') box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+    else box.scrollTop = box.scrollHeight;
+  }
+
+  var lastSearchQ = '';
+  // keepScroll: stay put if the user has scrolled up. instant: jump (used when opening a chat)
+  function renderMessages(keepScroll, instant) {
     var c = active(); if (!c) return;
     var box = $('#messages');
-    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-    var prevTop = box.scrollTop;
-    var html = '<div class="e2e-notice">' + icon('lock') + '<span>Messages and calls are end-to-end encrypted. No one outside of this ' +
+    var dist = box.scrollHeight - box.scrollTop - box.clientHeight;
+    var html = '<div class="e2e-notice" data-key="e2e">' + icon('lock') + '<span>Messages and calls are end-to-end encrypted. No one outside of this ' +
       (c.type === 'direct' ? 'chat' : c.type) + ', not even Syntra, can read or listen to them.</span></div>';
 
     var q = state.msgSearch.toLowerCase(), hits = 0;
     var msgs = c.messages;
     for (var i = 0; i < msgs.length; i++) {
       var m = msgs[i], p = msgs[i - 1], n = msgs[i + 1];
-      if (!p || !sameDay(p.ts, m.ts)) html += '<div class="date-sep">' + fmtDay(m.ts) + '</div>';
-      if (m.type === 'system') { html += '<div class="sys-msg">' + icon('timer') + esc(m.text) + '</div>'; continue; }
+      if (!p || !sameDay(p.ts, m.ts)) html += '<div class="date-sep" data-key="d-' + new Date(m.ts).toDateString() + '">' + fmtDay(m.ts) + '</div>';
+      if (m.type === 'system') { html += '<div class="sys-msg" data-key="' + m.id + '">' + icon('timer') + esc(m.text) + '</div>'; continue; }
       var first = !p || p.type === 'system' || p.from !== m.from || !sameDay(p.ts, m.ts) || m.ts - p.ts > 300000;
       var last = !n || n.type === 'system' || n.from !== m.from || !sameDay(n.ts, m.ts) || n.ts - m.ts > 300000;
       if (q && (m.text || '').toLowerCase().indexOf(q) !== -1) hits++;
@@ -588,20 +664,24 @@
     }
     if (state.typing[c.id] && state.settings.typingIndicators) {
       var tu = users[state.typing[c.id]];
-      html += '<div class="typing-row">' + (c.type !== 'direct' ? userAvatar(tu) : '') + '<div class="typing-bubble"><i></i><i></i><i></i></div></div>';
+      html += '<div class="typing-row" data-key="typing-' + tu.id + '">' + (c.type !== 'direct' ? userAvatar(tu) : '') + '<div class="typing-bubble"><i></i><i></i><i></i></div></div>';
     }
-    box.innerHTML = html;
+    morph(box, html);
     state.fresh = {};
     state.pop = null;
     if (q) {
       $('#msgSearchCount').textContent = hits + (hits === 1 ? ' match' : ' matches');
-      var firstHit = box.querySelector('mark');
-      if (firstHit) firstHit.scrollIntoView({ block: 'center' });
+      // only jump to the first match when the search text changes, not on every update
+      if (q !== lastSearchQ) {
+        var firstHit = box.querySelector('mark');
+        if (firstHit) firstHit.scrollIntoView({ block: 'center' });
+      }
     } else {
       $('#msgSearchCount').textContent = '';
-      if (keepScroll && !atBottom) box.scrollTop = prevTop;
-      else box.scrollTop = box.scrollHeight;
+      if (instant) scrollToBottom(box, false);
+      else if (!(keepScroll && dist > 120)) scrollToBottom(box, dist < 1500);
     }
+    lastSearchQ = q;
     updateJump();
   }
 
@@ -743,7 +823,20 @@
     var ta = $('#msgInput');
     var text = ta.value.trim();
     if (!text) { toast(icon('mic') + 'Voice notes will be available with the backend'); return; }
-    if (state.prec === 'flash' && state.settings.flashOverride && !confirmFlash()) return;
+    if (state.prec === 'flash' && state.settings.flashOverride) {
+      askConfirm({
+        title: 'Send as FLASH?',
+        message: 'Flash is for emergencies only. It alerts recipients even if they set Do Not Disturb.',
+        confirmLabel: 'Send Flash', danger: true, icon: 'alert'
+      }).then(function (ok) { if (ok) deliverText(c, $('#msgInput').value.trim()); else ta.focus(); });
+      return;
+    }
+    deliverText(c, text);
+  }
+
+  function deliverText(c, text) {
+    if (!text) return;
+    var ta = $('#msgInput');
     var m = { id: uid(), from: 'me', ts: Date.now(), text: text, status: 'pending' };
     if (state.prec !== 'routine') m.prec = state.prec;
     if (state.replyTo) m.replyTo = state.replyTo;
@@ -755,8 +848,44 @@
     pushMessage(c, m);
   }
 
-  function confirmFlash() {
-    return window.confirm('Send as FLASH precedence?\n\nFlash messages override recipients\' Do Not Disturb and trigger an alert.');
+  // ---------------------------------------------------------
+  // In-app confirmation dialog. Native confirm() is blocked in
+  // some embedded browsers (it returns false instantly), which
+  // silently broke sign-out, Flash sending and admin actions.
+  // ---------------------------------------------------------
+  function askConfirm(o) {
+    return new Promise(function (resolve) {
+      var host = document.createElement('div');
+      host.className = 'confirm-backdrop';
+      host.innerHTML = '<div class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle">' +
+        (o.icon ? '<div class="confirm-ico' + (o.danger ? ' danger' : '') + '">' + icon(o.icon) + '</div>' : '') +
+        '<h3 id="cfTitle">' + esc(o.title) + '</h3>' +
+        (o.message ? '<p>' + esc(o.message) + '</p>' : '') +
+        '<div class="confirm-actions"><button class="btn" data-cf="0">' + esc(o.cancelLabel || 'Cancel') + '</button>' +
+        '<button class="btn ' + (o.danger ? 'danger' : 'primary') + '" data-cf="1">' + esc(o.confirmLabel || 'OK') + '</button></div></div>';
+      document.body.appendChild(host);
+      var prevFocus = document.activeElement;
+      var done = function (v) {
+        host.classList.add('closing');
+        setTimeout(function () { host.remove(); }, motionMs(160));
+        if (prevFocus && prevFocus.focus && !v) prevFocus.focus();
+        resolve(v);
+      };
+      host.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-cf]');
+        if (b) done(b.dataset.cf === '1');
+        else if (e.target === host) done(false);
+      });
+      host.addEventListener('keydown', function (e) {
+        e.stopPropagation();
+        if (e.key === 'Escape') done(false);
+        if (e.key === 'Tab') {   // keep focus inside the dialog
+          var bs = $$('button', host), i = bs.indexOf(document.activeElement);
+          e.preventDefault(); bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length].focus();
+        }
+      });
+      setTimeout(function () { $('[data-cf="1"]', host).focus(); }, 20);
+    });
   }
 
   function simulateDelivery(c, m) {
@@ -874,10 +1003,25 @@
       case 'info':
         msgInfoModal(c, m); break;
       case 'delete':
-        c.messages = c.messages.filter(function (x) { return x.id !== m.id; });
-        if (c.pinnedMsgId === m.id) c.pinnedMsgId = null;
-        state.saved = state.saved.filter(function (s) { return s.msgId !== m.id; });
-        renderChat(); renderList(); toast(icon('trash') + 'Message deleted'); break;
+        var removeMsg = function () {
+          c.messages = c.messages.filter(function (x) { return x.id !== m.id; });
+          if (c.pinnedMsgId === m.id) c.pinnedMsgId = null;
+          state.saved = state.saved.filter(function (s) { return s.msgId !== m.id; });
+          renderChat(); renderList(); toast(icon('trash') + 'Message deleted');
+        };
+        // collapse the bubble away before removing it
+        var row = $('#messages [data-id="' + m.id + '"]');
+        if (row && root.dataset.motion !== 'off' && row.animate) {
+          row.style.overflow = 'hidden';
+          var dur = motionMs(220), removed = false;
+          var finish = function () { if (!removed) { removed = true; removeMsg(); } };
+          row.animate([
+            { opacity: 1, transform: 'scale(1)', height: row.offsetHeight + 'px' },
+            { opacity: 0, transform: 'scale(.92)', height: '0px', marginTop: '0px' }
+          ], { duration: dur, easing: 'ease-in', fill: 'forwards' }).onfinish = finish;
+          setTimeout(finish, dur + 80);   // animations pause in background windows
+        } else removeMsg();
+        break;
       case 'react':
         toggleReaction(c, m, extra); break;
     }
@@ -993,13 +1137,17 @@
         renderChat(); renderList(); break;
       case 'export': exportChat(c); break;
       case 'clear':
-        if (confirm('Clear all messages in “' + convTitle(c) + '” on this device?')) { c.messages = []; c.pinnedMsgId = null; renderChat(); renderList(); renderInfo(); }
+        askConfirm({ title: 'Clear chat history?', message: 'All messages in “' + convTitle(c) + '” will be removed from this computer. This cannot be undone.', confirmLabel: 'Clear history', danger: true, icon: 'trash' })
+          .then(function (ok) { if (ok) { c.messages = []; c.pinnedMsgId = null; renderChat(); renderList(); renderInfo(); } });
         break;
       case 'leave':
-        if (confirm('Leave “' + c.name + '”?')) {
-          D.conversations = D.conversations.filter(function (x) { return x.id !== c.id; });
-          closeConv(); toast('You left ' + esc(c.name));
-        }
+        askConfirm({ title: 'Leave “' + c.name + '”?', message: 'You will stop receiving messages from this group.', confirmLabel: 'Leave group', danger: true, icon: 'back' })
+          .then(function (ok) {
+            if (!ok) return;
+            // D.conversations is shared with admin.js, so remove in place
+            var i = D.conversations.indexOf(c); if (i !== -1) D.conversations.splice(i, 1);
+            closeConv(); toast('You left ' + esc(c.name));
+          });
         break;
     }
   }
@@ -1030,7 +1178,7 @@
     $('#msgSearchBar').classList.add('hidden');
     $('#msgSearchInput').value = '';
     state.msgSearch = '';
-    renderMessages();
+    renderMessages(true);
   }
 
   // ---------------------------------------------------------
@@ -1198,7 +1346,8 @@
     var m = openModal('Settings',
       '<div class="settings"><nav class="settings-nav">' + S.SECTIONS.map(function (s) {
         return '<button data-tab="' + s.id + '">' + icon(s.icon) + '<span>' + s.label + '</span></button>';
-      }).join('') + '</nav><div class="settings-pane" id="setPane"></div></div>', '', 'wide settings-modal');
+      }).join('') + '<button id="setSignOut" class="nav-signout">' + icon('logout') + '<span>Sign out</span></button>' +
+      '</nav><div class="settings-pane" id="setPane"></div></div>', '', 'wide settings-modal');
     var current = section;
 
     function control(e) {
@@ -1309,7 +1458,11 @@
       if (wp) { S.set('wallpaper', wp.dataset.wp); $$('[data-wp]', m).forEach(function (b) { b.classList.toggle('active', b === wp); }); return; }
       var id = e.target.closest('button') && e.target.closest('button').id;
       if (id === 'setResetSec') { S.reset(current); draw(current); toast(icon('reset') + 'Section reset to defaults'); }
-      else if (id === 'setResetAll') { if (confirm('Reset all Syntra settings to their defaults?')) { S.reset(); draw(current); toast(icon('reset') + 'All settings reset'); } }
+      else if (id === 'setResetAll') {
+        askConfirm({ title: 'Reset all settings?', message: 'Every preference returns to its default. Settings managed by your Super Admin stay as they are.', confirmLabel: 'Reset', danger: true, icon: 'reset' })
+          .then(function (ok) { if (ok) { S.reset(); draw(current); toast(icon('reset') + 'All settings reset'); } });
+      }
+      else if (id === 'setSignOut') signOut();
       else if (id === 'setExport') {
         var blob = new Blob([S.exportJSON()], { type: 'application/json' });
         var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'syntra-settings.json'; a.click();
@@ -1456,6 +1609,19 @@
     $$('.rail-btn[data-view]').forEach(function (b) { b.addEventListener('click', function () { setView(b.dataset.view); }); });
     $('#themeToggle').addEventListener('click', toggleTheme);
     $('#helpBtn').addEventListener('click', function () { openGuide('start'); });
+
+    // Material/Telegram-style ripple on press
+    document.addEventListener('pointerdown', function (e) {
+      if (root.dataset.motion !== 'full' || e.button !== 0) return;
+      var t = e.target.closest('.conv, .btn, .chip, .role-opt, .send-btn, .stat, .settings-nav button, .wp-tile');
+      if (!t || t.disabled) return;
+      var r = t.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2;
+      var s = document.createElement('span');
+      s.className = 'ripple';
+      s.style.cssText = 'width:' + d + 'px;height:' + d + 'px;left:' + (e.clientX - r.left - d / 2) + 'px;top:' + (e.clientY - r.top - d / 2) + 'px';
+      t.appendChild(s);
+      setTimeout(function () { s.remove(); }, 650);
+    }, { passive: true });
     // Any element with data-guide="section" opens the user guide there
     document.addEventListener('click', function (e) {
       var g = e.target.closest('[data-guide]');
@@ -1573,8 +1739,13 @@
       rz.addEventListener('pointerup', up);
     });
     rz.addEventListener('dblclick', function () { S.set('sidebarWidth', S.entry('sidebarWidth').default); });
+    // Double-click reacts 👍; stop the browser from selecting a word at the same time
+    box.addEventListener('mousedown', function (e) {
+      if (e.detail > 1 && e.target.closest('.bubble')) e.preventDefault();
+    });
     box.addEventListener('dblclick', function (e) {
-      var row = e.target.closest('.msg-row'); if (!row || e.target.closest('.reactions')) return;
+      var row = e.target.closest('.msg-row'); if (!row || e.target.closest('.reactions, .msg-hover')) return;
+      var sel = window.getSelection(); if (sel) sel.removeAllRanges();
       msgAction('react', row.dataset.id, '👍');
     });
 
@@ -1658,7 +1829,10 @@
         setTimeout(function () { hideEl($('#lockScreen'), 300); resetIdle(); toast(icon('lock') + 'Unlocked'); }, 180);
       }
     });
-    $('#lockScreen').addEventListener('click', function () { $('#pinInput').focus(); });
+    $('#lockScreen').addEventListener('click', function (e) {
+      if (e.target.closest('#lockSignOut')) { signOut(); return; }
+      $('#pinInput').focus();
+    });
 
     // Global
     var suppressClick = false;
@@ -1842,9 +2016,13 @@
   }
 
   function signOut() {
-    if (!confirm('Sign out of Syntra on this device?')) return;
-    clearSession();
-    location.reload();
+    askConfirm({ title: 'Sign out of Syntra?', message: 'You will need your credentials to sign in again on this computer.', confirmLabel: 'Sign out', danger: true, icon: 'logout' })
+      .then(function (ok) {
+        if (!ok) return;
+        clearSession();
+        document.body.classList.add('signing-out');
+        setTimeout(function () { location.reload(); }, motionMs(250));
+      });
   }
 
   function startApp() {
@@ -1883,7 +2061,7 @@
 
   // Shared helpers for the admin console and user guide modules
   window.Syntra = {
-    $: $, $$: $$, esc: esc, icon: icon, toast: toast, uid: uid,
+    $: $, $$: $$, esc: esc, icon: icon, toast: toast, uid: uid, confirm: askConfirm, morph: morph,
     openModal: openModal, closeModal: closeModal, showEl: showEl, hideEl: hideEl, motionMs: motionMs, isNarrow: isNarrow,
     userAvatar: userAvatar, avatarHTML: avatarHTML, initials: initials, fullName: fullName, shortName: shortName,
     fmtTime: fmtTime, fmtListTime: fmtListTime, fmtDay: fmtDay,

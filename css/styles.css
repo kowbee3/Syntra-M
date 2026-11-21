@@ -1426,3 +1426,79 @@ button.stat:hover { transform: translateY(-2px); box-shadow: var(--shadow); bord
   .prec-btn { padding: 0 6px 0 10px; }
   #helpBtn { display: none; }
 }
+
+/* =========================================================
+   CONFIRM DIALOG (replaces native confirm())
+   ========================================================= */
+.confirm-backdrop {
+  position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 16px;
+  background: rgba(8, 12, 10, .5); backdrop-filter: blur(3px);
+  animation: fadeOnly .16s ease both;
+}
+.confirm-backdrop.closing { animation: fadeOut .16s ease both; }
+.confirm {
+  width: min(380px, 100%); background: var(--surface); border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow-lg); padding: 22px 22px 16px; text-align: center;
+  animation: confirmIn .22s var(--ease-spring) both;
+}
+.confirm-backdrop.closing .confirm { animation: popOut .16s ease both; }
+@keyframes confirmIn { from { opacity: 0; transform: scale(.92); } }
+.confirm-ico { width: 48px; height: 48px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.confirm-ico.danger { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+.confirm h3 { font-size: 16.5px; }
+.confirm p { color: var(--text-2); font-size: 13.5px; line-height: 1.5; margin-top: 6px; }
+.confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.confirm-actions .btn { height: 40px; }
+
+.nav-signout { margin-top: auto; color: var(--danger) !important; }
+@media (min-width: 721px) { .settings-nav { display: flex; flex-direction: column; } }
+.nav-signout svg { color: var(--danger); }
+.lock-signout { margin-top: 18px; color: var(--text-2); }
+body.signing-out > * { transition: opacity .25s ease; opacity: 0; }
+
+/* =========================================================
+   TELEGRAM-STYLE SMOOTHNESS
+   ========================================================= */
+/* Ripple on press */
+.conv, .btn, .chip, .role-opt, .send-btn, .stat, .settings-nav button, .wp-tile { position: relative; overflow: hidden; }
+.ripple {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: currentColor; opacity: .14; transform: scale(0);
+  animation: ripple .6s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.btn.primary .ripple, .send-btn .ripple, .chip.active .ripple { background: #fff; opacity: .25; }
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+
+/* Message hover toolbar fades instead of popping */
+.msg-hover { display: flex; opacity: 0; visibility: hidden; transition: opacity .15s ease, visibility .15s; }
+.msg-row:hover .msg-hover { opacity: 1; visibility: visible; }
+
+/* Outgoing messages rise from the composer; incoming slide in from the left */
+@keyframes msgOutIn { from { opacity: 0; transform: translateY(24px) scale(.92); } }
+@keyframes msgInIn  { from { opacity: 0; transform: translateX(-12px) scale(.97); } }
+.msg-row.out.enter { animation: msgOutIn .36s var(--ease-spring) both; }
+.msg-row.in.enter  { animation: msgInIn .32s var(--ease) both; }
+.typing-row { animation: msgInIn .25s var(--ease) both; }
+
+/* Smooth scrolling surfaces */
+.messages, .list, .admin-body, .settings-pane { overscroll-behavior: contain; }
+.messages { scrollbar-gutter: stable; }
+.list { scrollbar-gutter: stable; }
+
+/* Softer state transitions */
+.conv { transition: background-color .18s ease, transform .12s ease; }
+.bubble { transition: border-radius .2s ease, box-shadow .2s ease; }
+.reply-preview:not(.hidden) { animation: fadeUp .18s var(--ease) both; }
+.msg-search:not(.hidden), .pinned:not(.hidden) { animation: fadeOnly .2s ease both; }
+.input-box { transition: border-color .2s ease, box-shadow .2s ease; }
+.input-box:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.chat-sub { transition: color .2s ease; }
+
+/* Faster, subtler chat switch */
+.messages.swap { animation: fadeUp .2s var(--ease) both; }
+
+[data-motion="reduced"] .msg-row.out.enter,
+[data-motion="reduced"] .msg-row.in.enter,
+[data-motion="reduced"] .typing-row { animation-name: fadeOnly !important; }
+[data-motion="off"] .ripple { display: none; }
+@media (hover: none) { .msg-hover { display: none !important; } }

@@ -362,15 +362,15 @@
     var a = acc(id);
     switch (name) {
       case 'approve': a.status = 'active'; a.device = 'Pending first sign-in'; a.lastSeen = Date.now(); log('Approved account', accName(a)); X.toast(icon('check') + accName(a) + ' approved'); break;
-      case 'deny': if (!confirm('Deny the account request from ' + accName(a) + '?')) return; D.accounts.splice(D.accounts.indexOf(a), 1); log('Denied account request', accName(a)); break;
+      case 'deny': return ask('Deny this request?', accName(a) + ' will not get a Syntra account.', 'Deny', 'ban', function () { D.accounts.splice(D.accounts.indexOf(a), 1); log('Denied account request', accName(a)); });
       case 'suspend': a.status = 'suspended'; log('Suspended account', accName(a)); X.toast(icon('ban') + accName(a) + ' suspended'); break;
       case 'reactivate': a.status = 'active'; log('Reactivated account', accName(a)); break;
       case 'lock-device': a.status = 'locked'; a.note = 'Locked remotely by ' + X.fullName(X.me); log('Remote-locked device', accName(a) + ' · ' + a.device); X.toast(icon('lock') + 'Device locked'); break;
       case 'unlock-device': a.status = 'active'; a.note = ''; log('Unlocked device', accName(a)); break;
-      case 'wipe': if (!confirm('Wipe all Syntra data on ' + accName(a) + '\'s device? This cannot be undone.')) return; a.status = 'suspended'; a.note = 'Device wiped'; log('Wiped device', accName(a)); X.toast(icon('trash') + 'Wipe command sent'); break;
+      case 'wipe': return ask('Wipe this device?', 'All Syntra data on ' + accName(a) + '\'s device will be erased. This cannot be undone.', 'Wipe device', 'trash', function () { a.status = 'suspended'; a.note = 'Device wiped'; log('Wiped device', accName(a)); X.toast(icon('trash') + 'Wipe command sent'); });
       case 'reset-signin': log('Reset sign-in', accName(a)); X.toast(icon('key') + accName(a) + ' must set a new password at next sign-in'); break;
       case 'extend': a.expires += 30 * 86400000; log('Extended temporary access', accName(a)); X.toast(icon('clock') + 'Access extended'); break;
-      case 'remove': if (!confirm('Remove ' + accName(a) + '\'s account?')) return; D.accounts.splice(D.accounts.indexOf(a), 1); log('Removed account', accName(a)); break;
+      case 'remove': return ask('Remove this account?', accName(a) + ' will lose access to Syntra.', 'Remove account', 'trash', function () { D.accounts.splice(D.accounts.indexOf(a), 1); log('Removed account', accName(a)); });
       case 'promote-one': a.role = 'admin'; log('Promoted to Admin', accName(a), 'system'); X.toast(accName(a) + ' is now an Admin'); break;
       case 'promote': var p = acc($('#aPromote').value); if (!p) return; p.role = 'admin'; log('Promoted to Admin', accName(p), 'system'); X.toast(accName(p) + ' is now an Admin'); break;
       case 'demote': a.role = 'user'; log('Removed Admin role', accName(a), 'system'); X.toast(accName(a) + ' is now a Standard User'); break;
@@ -383,10 +383,11 @@
       case 'readonly': X.getConv(id).readOnly = el.checked; log(el.checked ? 'Limited posting to admins' : 'Allowed everyone to post', X.getConv(id).name); break;
       case 'archive':
         var cv = X.getConv(id);
-        if (!confirm('Archive “' + cv.name + '”? Members will no longer see it.')) return;
-        if (cv.type === 'channel') D.channels.splice(D.channels.indexOf(cv), 1); else D.conversations.splice(D.conversations.indexOf(cv), 1);
-        if (X.state.activeId === id) X.state.activeId = null;
-        log('Archived ' + cv.type, cv.name); break;
+        return ask('Archive “' + cv.name + '”?', 'Members will no longer see it.', 'Archive', 'trash', function () {
+          if (cv.type === 'channel') D.channels.splice(D.channels.indexOf(cv), 1); else D.conversations.splice(D.conversations.indexOf(cv), 1);
+          if (X.state.activeId === id) X.state.activeId = null;
+          log('Archived ' + cv.type, cv.name);
+        });
       case 'new-channel': newChannelModal(); return;
       case 'dismiss': D.reports = D.reports.filter(function (r) { return r.id !== id; }); log('Dismissed a report'); break;
       case 'warn':
@@ -410,7 +411,7 @@
         link.download = 'syntra-activity-log.csv'; link.click();
         log('Exported activity log'); break;
 
-      case 'reset-policy': if (!confirm('Reset the security policy to defaults?')) return; S.resetPolicy(); draft = {}; log('Reset security policy', 'All users', 'system'); break;
+      case 'reset-policy': return ask('Reset security policy?', 'Every enforced setting is released and attachments are allowed again.', 'Reset policy', 'reset', function () { S.resetPolicy(); draft = {}; log('Reset security policy', 'All users', 'system'); });
 
       case 'broadcast':
         var txt = $('#aBroadcast').value.trim();
@@ -424,6 +425,12 @@
       case 'rotate': var s2 = D.serviceAccounts.filter(function (x) { return x.id === id; })[0]; log('Rotated service account key', s2.name, 'system'); X.toast(icon('key') + 'New key issued for ' + s2.name); break;
     }
     refreshAll();
+  }
+
+  // Confirm with the in-app dialog, then run fn and refresh
+  function ask(title, message, label, ico, fn) {
+    X.confirm({ title: title, message: message, confirmLabel: label, danger: true, icon: ico })
+      .then(function (ok) { if (ok) { fn(); refreshAll(); } });
   }
 
   function addUserModal() {
