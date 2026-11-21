@@ -1727,3 +1727,81 @@ body.signing-out > * { transition: opacity .25s ease; opacity: 0; }
   .hb-more.open > .hb-submenu { display: block; }
   .sp-body { padding: 4px 8px 24px; }
 }
+
+/* =========================================================
+   TELEGRAM-STYLE CHAT LIST
+   ========================================================= */
+.sidebar-head { padding: 10px 12px 8px 8px; gap: 6px; align-items: center; }
+.sidebar-head .menu-btn { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; }
+.sidebar-head .menu-btn svg { width: 22px; height: 22px; }
+.sidebar-head .search { flex: 1; margin: 0; min-width: 0; }
+.sidebar-head .search input { height: 42px; border-radius: 22px; padding-left: 44px; font-size: 15px; }
+.sidebar-head .search svg { left: 15px; width: 20px; height: 20px; }
+.sidebar-head h1 { font-size: 19px; }
+
+/* Tip card */
+.tip-card {
+  position: relative; margin: 2px 8px 6px; padding: 10px 44px 11px 16px;
+  border-radius: 14px; background: var(--surface-2); cursor: pointer; overflow: hidden;
+  transition: background-color .15s;
+}
+[data-theme="dark"] .tip-card, [data-theme="night"] .tip-card { background: var(--surface-3); }
+.tip-card:hover { background: color-mix(in srgb, var(--accent) 10%, var(--surface-2)); }
+.tip-card:not(.hidden) { animation: fadeUp .3s var(--ease) both; }
+.tip-body b { display: block; font-size: 15px; font-weight: 600; }
+.tip-body span { display: block; font-size: 13.5px; color: var(--text-2); margin-top: 2px; line-height: 1.35; }
+.tip-x { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.tip-x:active { transform: translateY(-50%) scale(.9); }
+
+.chips { padding: 4px 12px 6px; }
+.list { padding: 0 8px 92px; }
+
+/* Rows */
+.conv { padding: 9px 10px; gap: 12px; border-radius: 12px; min-height: 72px; }
+.conv:not(.admin-nav) .avatar { --size: 54px; }
+[data-density="compact"] .conv:not(.admin-nav) .avatar { --size: 44px; }
+[data-density="compact"] .conv { min-height: 60px; }
+[data-density="spacious"] .conv:not(.admin-nav) .avatar { --size: 60px; }
+.conv-name { font-size: 15.5px; font-weight: 600; }
+.conv-name .rank { font-size: 12.5px; }
+.conv-preview { font-size: 14.5px; }
+.conv-bottom { margin-top: 4px; }
+.conv-time { display: inline-flex; align-items: center; gap: 3px; font-size: 12.5px; }
+.conv.unread .conv-time { color: var(--text-3); font-weight: 400; }
+.conv-time .tick { width: 17px; height: 17px; color: var(--text-3); }
+.conv-time .tick.read { color: var(--accent); }
+.unread-badge { min-width: 22px; height: 22px; border-radius: 11px; font-size: 12px; padding: 0 7px; }
+.conv-icons svg { width: 15px; height: 15px; }
+
+/* Selected chat: filled with the accent color */
+.conv.active, .conv.active:hover { background: var(--accent); }
+.conv.active .conv-name, .conv.active .rank, .conv.active .verified,
+.conv.active .conv-preview, .conv.active .conv-preview .typing, .conv.active .conv-time,
+.conv.active .conv-time .tick, .conv.active .conv-icons, .conv.active .conv-preview span { color: #fff !important; }
+.conv.active .conv-preview, .conv.active .conv-time, .conv.active .rank { opacity: .88; }
+.conv.active .unread-badge { background: #fff; color: var(--accent); }
+.conv.active .presence { border-color: var(--accent); }
+.conv.active .prec-tag { background: rgba(255, 255, 255, .25); }
+.conv.active .avatar.group { box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+
+/* Floating compose button */
+.fab {
+  position: absolute; right: 18px; bottom: 18px; z-index: 4;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--accent); color: #fff; display: grid; place-items: center;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow-sm);
+  transition: transform .2s var(--ease-spring), background-color .15s, bottom .2s var(--ease);
+  animation: confirmIn .35s .15s var(--ease-spring) both;
+}
+.fab:hover { background: var(--accent-hover); transform: scale(1.06); }
+.fab:active { transform: scale(.94); }
+.fab svg { width: 24px; height: 24px; stroke-width: 2; }
+
+/* Connection strip only when offline */
+.sidebar-foot { display: none; }
+.sidebar-foot.show { display: flex; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); color: var(--danger); }
+.sidebar:has(.sidebar-foot.show) .fab { bottom: 58px; }
+
+@media (max-width: 720px) {
+  .fab { right: 16px; bottom: 16px; }
+}

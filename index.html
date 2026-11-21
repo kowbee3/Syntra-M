@@ -193,16 +193,17 @@
     <!-- ============ SIDEBAR / LIST ============ -->
     <aside class="sidebar" aria-label="Conversations">
       <header class="sidebar-head">
-        <button class="icon-btn" id="menuBtn" title="Menu" aria-haspopup="menu"><svg><use href="#i-menu"/></svg></button>
-        <h1 id="listTitle">Chats</h1>
-        <button class="icon-btn" id="newChatBtn" title="New message (Ctrl+N)"><svg><use href="#i-edit"/></svg></button>
+        <button class="icon-btn menu-btn" id="menuBtn" title="Menu" aria-haspopup="menu"><svg><use href="#i-menu"/></svg></button>
+        <h1 id="listTitle" class="hidden">Chats</h1>
+        <div class="search">
+          <svg><use href="#i-search"/></svg>
+          <input type="text" id="searchInput" placeholder="Search (Ctrl+K)" autocomplete="off" />
+        </div>
       </header>
-      <div class="search">
-        <svg><use href="#i-search"/></svg>
-        <input type="text" id="searchInput" placeholder="Search (Ctrl+K)" autocomplete="off" />
-      </div>
+      <div class="tip-card hidden" id="tipCard" role="button" tabindex="0"></div>
       <div class="chips" id="filterChips"></div>
       <ul class="list" id="convList"></ul>
+      <button class="fab" id="newChatBtn" title="New message (Ctrl+N)"><svg><use href="#i-edit"/></svg></button>
       <div class="sidebar-foot">
         <svg><use href="#i-shield"/></svg>
         <span>End-to-end encrypted</span>

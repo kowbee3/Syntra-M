@@ -298,6 +298,46 @@
   // ---------------------------------------------------------
   var VIEW_TITLES = { chats: 'Chats', channels: 'Channels', contacts: 'Directory', calls: 'Calls', saved: 'Saved', admin: 'Admin console' };
 
+  // ---------------------------------------------------------
+  // Tip card above the chat list (dismissible, one at a time)
+  // ---------------------------------------------------------
+  function dismissedTips() { try { return JSON.parse(localStorage.getItem('syntra.tips') || '[]'); } catch (e) { return []; } }
+  function tipList() {
+    var t = [];
+    var pending = window.SyntraAdmin && can('console') ? window.SyntraAdmin.pendingCount() : 0;
+    if (pending) t.push({ id: 'pending-' + pending, title: pending + ' item' + (pending > 1 ? 's' : '') + ' need your attention 📋', text: 'Account requests and reported messages are waiting in the Admin console.', go: function () { setView('admin'); } });
+    t.push({ id: 'safety', title: 'Verify your contacts 🛡️', text: 'Compare safety numbers to make sure no one is listening in.', go: function () { openGuide('security'); } });
+    t.push({ id: 'status', title: 'Set your status 🟢', text: 'Let your unit know when you are away or busy.', go: function () { openSettings('status'); } });
+    t.push({ id: 'lock', title: 'Stepping away? 🔒', text: 'Press Ctrl+L to lock Syntra, or set an auto-lock timer.', go: function () { openSettings('privacy'); } });
+    var gone = dismissedTips();
+    return t.filter(function (x) { return gone.indexOf(x.id) === -1; });
+  }
+  var currentTip = null;
+  function renderTip() {
+    var box = $('#tipCard');
+    var tip = (state.view === 'chats' && !state.search) ? tipList()[0] : null;
+    currentTip = tip;
+    var html = tip ? '<div class="tip-body" data-key="' + tip.id + '"><b>' + esc(tip.title) + '</b><span>' + esc(tip.text) + '</span></div>' +
+      '<button class="icon-btn sm tip-x" title="Dismiss">' + icon('x') + '</button>' : '';
+    if (box._html === html) return;
+    box._html = html;
+    box.innerHTML = html;
+    box.classList.toggle('hidden', !tip);
+  }
+  function dismissTip() {
+    if (!currentTip) return;
+    var gone = dismissedTips(); gone.push(currentTip.id);
+    try { localStorage.setItem('syntra.tips', JSON.stringify(gone)); } catch (e) {}
+    var box = $('#tipCard');
+    var done = function () { box._html = null; renderTip(); };
+    if (box.animate && root.dataset.motion !== 'off') {
+      var h = box.offsetHeight;
+      box.animate([{ height: h + 'px', opacity: 1 }, { height: '0px', opacity: 0, marginTop: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px' }],
+        { duration: motionMs(220), easing: 'ease-in' });
+      setTimeout(done, motionMs(220));
+    } else done();
+  }
+
   // Chat folders shown as chips; which ones appear is a user setting (Settings › Chat Folders)
   var FOLDERS = [['all', 'All', null], ['unread', 'Unread', 'folderUnread'], ['direct', 'Direct', 'folderDirect'],
     ['group', 'Groups', 'folderGroups'], ['priority', 'Priority', 'folderPriority']];
@@ -314,9 +354,13 @@
     box.classList.toggle('hidden', state.view !== 'chats' || shown.length < 2);
   }
 
+  var SEARCH_HINT = { chats: 'Search', channels: 'Search channels', contacts: 'Search directory', calls: 'Search calls', saved: 'Search saved' };
   function renderList() {
     $('#listTitle').textContent = VIEW_TITLES[state.view];
+    $('#listTitle').classList.toggle('hidden', state.view !== 'admin');
+    if (SEARCH_HINT[state.view]) $('#searchInput').placeholder = SEARCH_HINT[state.view] + ' (Ctrl+K)';
     renderChips();
+    renderTip();
     $('.sidebar .search').classList.toggle('hidden', state.view === 'admin');
     $('#newChatBtn').classList.toggle('hidden', state.view === 'admin');
     $$('.rail-btn[data-view]').forEach(function (b) { b.classList.toggle('active', b.dataset.view === state.view); });
@@ -342,14 +386,8 @@
         if (!!b.pinned - !!a.pinned) return !!b.pinned - !!a.pinned;
         return lastTs(b) - lastTs(a);
       });
-      var pinned = list.filter(function (c) { return c.pinned; });
-      var rest = list.filter(function (c) { return !c.pinned; });
-      if (pinned.length && rest.length) {
-        html += '<li class="list-section">Pinned</li>' + pinned.map(convItem).join('') +
-                '<li class="list-section">All messages</li>' + rest.map(convItem).join('');
-      } else {
-        html = list.map(convItem).join('');
-      }
+      // Telegram-style: one continuous list, pinned chats first (marked with a pin)
+      html = list.map(convItem).join('');
       if (!list.length) html = '<li class="list-empty">' + (q ? 'No results for “' + esc(state.search) + '”' : 'Nothing here yet') + '</li>';
     }
 
@@ -429,7 +467,13 @@
     var icons = '';
     if (c.muted) icons += icon('bell-off');
     if (c.disappearing) icons += icon('timer');
-    if (c.pinned) icons += icon('pin');
+    if (c.pinned && !c.unread) icons += icon('pin');
+    // read ticks before the time when the last message is yours
+    var tick = '';
+    if (m && m.from === 'me' && m.type !== 'system') {
+      var st = m.status || 'sent';
+      tick = st === 'read' ? icon('check2', 'tick read') : st === 'delivered' ? icon('check2', 'tick') : st === 'pending' ? icon('clock', 'tick') : icon('check', 'tick');
+    }
     var name = c.type === 'direct'
       ? '<span class="rank">' + esc(users[c.userId].rank) + '</span>' + esc(users[c.userId].name) + (users[c.userId].verified ? icon('shield', 'verified') : '')
       : esc(c.name);
@@ -437,7 +481,7 @@
       avatarHTML(c) +
       '<div class="conv-main">' +
         '<div class="conv-top"><span class="conv-name">' + name + '</span>' +
-        '<span class="conv-time">' + (m ? fmtListTime(m.ts) : '') + '</span></div>' +
+        '<span class="conv-time">' + tick + (m ? fmtListTime(m.ts) : '') + '</span></div>' +
         '<div class="conv-bottom">' +
           (hasPrec ? '<span class="prec-tag ' + m.prec + '">' + PREC[m.prec].label.toUpperCase() + '</span>' : '') +
           '<span class="conv-preview">' + (c.draft && c.id !== state.activeId ? '<span style="color:var(--danger)">Draft:</span> ' + esc(c.draft) : previewText(c)) + '</span>' +
@@ -1508,6 +1552,10 @@
     $('#settingsBtn').addEventListener('click', function () { openSettings(); });
     $('#meBtn').addEventListener('click', function () { openSettings(); });
     $('#newChatBtn').addEventListener('click', newChatModal);
+    $('#tipCard').addEventListener('click', function (e) {
+      if (e.target.closest('.tip-x')) dismissTip();
+      else if (currentTip) currentTip.go();
+    });
 
     // Search & filters
     $('#searchInput').addEventListener('input', function () { state.search = this.value; renderList(); });
@@ -1755,10 +1803,12 @@
     });
   }
 
+  // Like Telegram, connection status only appears when something is wrong
   function netStatus() {
     var el = $('#netStatus');
     var on = navigator.onLine;
     el.classList.toggle('offline', !on);
+    $('.sidebar-foot').classList.toggle('show', !on);
     el.lastChild.textContent = on ? 'Connected' : 'Offline — messages will queue';
   }
 
