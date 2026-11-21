@@ -4,7 +4,7 @@
     {
       "name": "syntra",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5510"],
+      "runtimeArgs": ["serve.py", "5510"],
       "port": 5510
     }
   ]

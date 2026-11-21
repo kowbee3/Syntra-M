@@ -71,7 +71,7 @@
     var ma = $('#meAvatar');
     ma.style.setProperty('--av', me.color);
     ma.textContent = initials(me.name);
-    $('#meBtn').title = fullName(me) + ' · ' + roleLabel() + ' — set your status';
+    setTip($('#meBtn'), fullName(me) + ' · ' + roleLabel() + ' — set your status');
     $('#adminRailBtn').classList.toggle('hidden', !can('console'));
   }
 
@@ -1625,7 +1625,11 @@
     $$('.popover').forEach(function (p) { if (p !== except) p.classList.add('hidden'); });
   }
 
+  // Left-bar buttons use quick CSS tooltips; keep the text for screen readers
+  function setTip(el, text) { el.dataset.tip = text; el.setAttribute('aria-label', text); el.removeAttribute('title'); }
+
   function bind() {
+    $$('.rail button[title]').forEach(function (b) { setTip(b, b.title); });
     // Rail
     $$('.rail-btn[data-view]').forEach(function (b) { b.addEventListener('click', function () { setView(b.dataset.view); }); });
 
