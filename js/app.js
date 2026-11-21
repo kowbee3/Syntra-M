@@ -2009,9 +2009,6 @@
       this.title = show ? 'Hide password' : 'Show password';
       this.classList.toggle('on', show);
     });
-    $('#cacBtn').addEventListener('click', function () {
-      toast(icon('card') + 'Smart-card sign-in will be available with the backend');
-    });
     $('#loginGuide').addEventListener('click', function () { openGuide('start'); });
     $('#loginCard').addEventListener('click', function (e) {
       var v = e.target.closest('[data-goview]'); if (v) loginView(v.dataset.goview);

@@ -24,7 +24,7 @@
           '<p>Syntra is a secure messaging app for desktop computers. Every message and call is end-to-end encrypted: only the people in the conversation can read it.</p>' +
           '<h3>Signing in</h3><ol>' +
           '<li>Choose your account type: <b>Standard User</b>, <b>Admin</b> or <b>Super Admin</b>. Pick the one your account was issued as.</li>' +
-          '<li>Enter your username or DoD ID and your password, or use your CAC / PIV card.</li>' +
+          '<li>Enter your username or DoD ID and your password, or choose <b>Log in by QR code</b> and scan it with Syntra on your phone.</li>' +
           '<li>Tick <b>Keep me signed in</b> only on a computer that is issued to you.</li></ol>' +
           '<h3>The screen</h3><ul>' +
           '<li><b>Left bar:</b> Chats, Channels, Directory, Calls and Saved. Admins also see the <b>Admin console</b>. At the bottom: lock, settings, and your picture (click it to set your status).</li>' +
