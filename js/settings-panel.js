@@ -141,7 +141,7 @@
       return card('Your status', opts.map(function (o) {
         var on = X.me.status === o[0];
         return '<button class="sp-row sp-radio' + (on ? ' on' : '') + '" data-status="' + o[0] + '"><span class="radio"></span>' +
-          label('<i class="pdot ' + o[0] + '"></i>' + o[1], o[2]) + '</button>';
+          label('<span class="sp-inline"><i class="pdot ' + o[0] + '"></i>' + o[1] + '</span>', o[2]) + '</button>';
       }).join(''));
     }
   };
@@ -394,7 +394,9 @@
   }
 
   function push(id, find) {
-    var cur = $('.sp-page', panel);
+    // already on this page (repeated clicks on the avatar, a row, etc.): don't stack a copy
+    if (stack.length && stack[stack.length - 1].id === id) return;
+    var cur = $('.sp-page:last-child', panel);
     if (cur && stack.length) stack[stack.length - 1].scroll = $('.sp-body', cur).scrollTop;
     stack.push({ id: id, scroll: 0 });
     var el = build(id);
