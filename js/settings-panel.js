@@ -399,6 +399,7 @@
     var cur = $('.sp-page:last-child', panel);
     if (cur && stack.length) stack[stack.length - 1].scroll = $('.sp-body', cur).scrollTop;
     stack.push({ id: id, scroll: 0 });
+    syncRail();
     var el = build(id);
     slide(el, 'forward');
     if (find) {
@@ -408,6 +409,14 @@
     if (id === 'search') setTimeout(function () { var s = $('#spSearch'); if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }, 50);
   }
 
+  // Show which left-bar button owns the open panel (gear = Settings, avatar = Status)
+  function syncRail() {
+    var top = isOpen && stack.length ? stack[stack.length - 1].id : null;
+    $('#settingsBtn').classList.toggle('active', isOpen && top !== 'status');
+    $('#meBtn').classList.toggle('active', top === 'status');
+    $('#settingsBtn').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
   function back() {
     if (stack.length <= 1) { close(); return; }
     stack.pop();
@@ -415,6 +424,7 @@
     var el = build(prev.id);
     slide(el, 'back');
     $('.sp-body', el).scrollTop = prev.scroll;
+    syncRail();
   }
 
   function refresh() {
@@ -442,6 +452,7 @@
     if (!isOpen) return;
     isOpen = false;
     searchQ = '';
+    syncRail();
     X.hideEl(panel, 240, function () { panel.innerHTML = ''; stack = []; });
   }
 
@@ -655,6 +666,7 @@
   window.SyntraSettingsPanel = {
     open: open, close: close, back: back,
     isOpen: function () { return isOpen; },
+    current: function () { return isOpen && stack.length ? stack[stack.length - 1].id : null; },
     menuOpen: function () { return !!menuEl; }, closeMenu: closeMenu
   };
 })();

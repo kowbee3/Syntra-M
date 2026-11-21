@@ -1853,3 +1853,7 @@ body.signing-out > * { transition: opacity .25s ease; opacity: 0; }
 /* keep an icon/dot on the same line as its label inside column-layout labels */
 .sp-inline { display: inline-flex; align-items: center; }
 .sp-inline .pdot { margin-right: 8px; }
+
+/* avatar shows a ring while the Status page is open */
+.rail-me .avatar { transition: box-shadow .2s ease; }
+.rail-me.active .avatar { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--accent); }

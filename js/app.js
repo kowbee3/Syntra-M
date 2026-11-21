@@ -1458,6 +1458,11 @@
 
   // Settings and profile live in the Telegram-style settings column (settings-panel.js)
   function openSettings(page) { if (window.SyntraSettingsPanel) window.SyntraSettingsPanel.open(page); }
+  // The gear (and Ctrl+,) toggle Settings: press once to open, again to close
+  function toggleSettings() {
+    var SP = window.SyntraSettingsPanel; if (!SP) return;
+    if (SP.isOpen()) SP.close(); else SP.open();
+  }
 
   // ---------------------------------------------------------
   // Calls
@@ -1589,9 +1594,13 @@
     });
     bindLogin();
     $('#lockBtn').addEventListener('click', lock);
-    $('#settingsBtn').addEventListener('click', function () { openSettings(); });
+    $('#settingsBtn').addEventListener('click', toggleSettings);
     // avatar = your status (Settings itself is the gear above it)
-    $('#meBtn').addEventListener('click', function () { openSettings('status'); });
+    $('#meBtn').addEventListener('click', function () {
+      var SP = window.SyntraSettingsPanel;
+      if (SP && SP.isOpen() && SP.current() === 'status') SP.close();
+      else openSettings('status');
+    });
     $('#newChatBtn').addEventListener('click', newChatModal);
     $('#tipCard').addEventListener('click', function (e) {
       if (e.target.closest('.tip-x')) dismissTip();
@@ -1828,7 +1837,7 @@
       else if (mod && k === 'n') { e.preventDefault(); newChatModal(); }
       else if (mod && k === 'l') { e.preventDefault(); lock(); }
       else if (mod && k === 'd') { e.preventDefault(); toggleTheme(); }
-      else if (mod && k === ',') { e.preventDefault(); openSettings(); }
+      else if (mod && k === ',') { e.preventDefault(); toggleSettings(); }
       else if (mod && k === 'f' && active()) { e.preventDefault(); openMsgSearch(); }
       else if (mod && /^[1-4]$/.test(k)) { e.preventDefault(); setView(['chats', 'channels', 'contacts', 'calls'][+k - 1]); }
       else if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); cycleConv(e.key === 'ArrowDown' ? 1 : -1); }
