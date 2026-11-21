@@ -51,8 +51,8 @@
       options: [['light', 'Light'], ['dark', 'Dark'], ['night', 'Night ops'], ['system', 'System']] },
     { key: 'accent', section: 'appearance', type: 'accent', label: 'Accent color', default: 'green',
       hint: 'Pick a preset or any custom color' },
-    { key: 'wallpaper', section: 'appearance', type: 'wallpaper', label: 'Chat background', default: 'plain',
-      options: [['plain', 'Plain'], ['dots', 'Dots'], ['grid', 'Grid'], ['topo', 'Contour'], ['hatch', 'Hatch']] },
+    { key: 'wallpaper', section: 'appearance', type: 'wallpaper', label: 'Chat background', default: 'doodle',
+      options: [['doodle', 'Doodles'], ['plain', 'Plain'], ['dots', 'Dots'], ['grid', 'Grid'], ['topo', 'Contour'], ['hatch', 'Hatch']] },
     { key: 'bubbleStyle', section: 'appearance', type: 'segment', label: 'Bubble shape', default: 'rounded',
       options: [['rounded', 'Rounded'], ['soft', 'Soft'], ['square', 'Square']] },
     { key: 'radius', section: 'appearance', type: 'range', label: 'Interface corners', default: 12,
@@ -107,6 +107,37 @@
     { key: 'autoLock', section: 'privacy', type: 'select', label: 'Screen lock', default: 15,
       hint: 'Lock Syntra after inactivity',
       options: [[0, 'Never'], [1, '1 minute'], [5, '5 minutes'], [15, '15 minutes'], [30, '30 minutes']] },
+
+    // ---- Chat folders (filters shown above the chat list)
+    { key: 'folderUnread',   section: 'folders', type: 'toggle', label: 'Unread',   default: true, hint: 'Chats with unread messages' },
+    { key: 'folderDirect',   section: 'folders', type: 'toggle', label: 'Direct',   default: true, hint: 'One-to-one conversations' },
+    { key: 'folderGroups',   section: 'folders', type: 'toggle', label: 'Groups',   default: true, hint: 'Group conversations' },
+    { key: 'folderPriority', section: 'folders', type: 'toggle', label: 'Priority', default: true, hint: 'Chats with Priority, Immediate or Flash messages' },
+
+    // ---- Emoji and reactions
+    { key: 'largeEmoji', section: 'emoji', type: 'toggle', label: 'Large emoji', default: true,
+      hint: 'Show messages that contain only emoji in a bigger size' },
+    { key: 'quickReaction', section: 'emoji', type: 'select', label: 'Quick reaction', default: '👍',
+      options: [['👍', 'Thumbs up'], ['✅', 'Check'], ['🫡', 'Salute'], ['👀', 'Eyes'], ['🔥', 'Fire'], ['❗', 'Exclamation']] },
+
+    // ---- Data and storage
+    { key: 'autoPhotos', section: 'data', type: 'toggle', label: 'Photos', default: true, hint: 'Download photos automatically' },
+    { key: 'autoFiles',  section: 'data', type: 'toggle', label: 'Files',  default: false, hint: 'Download documents automatically' },
+    { key: 'autoLimit',  section: 'data', type: 'select', label: 'Maximum file size', default: 5,
+      options: [[1, 'Up to 1 MB'], [5, 'Up to 5 MB'], [15, 'Up to 15 MB'], [50, 'Up to 50 MB']] },
+
+    // ---- Speakers and camera
+    { key: 'speaker', section: 'media', type: 'select', label: 'Speaker', default: 'default',
+      options: [['default', 'System default'], ['headset', 'Headset (USB)'], ['speakers', 'Speakers (built-in)']] },
+    { key: 'microphone', section: 'media', type: 'select', label: 'Microphone', default: 'default',
+      options: [['default', 'System default'], ['headset', 'Headset microphone (USB)'], ['array', 'Microphone array (built-in)']] },
+    { key: 'camera', section: 'media', type: 'select', label: 'Camera', default: 'default',
+      options: [['default', 'System default'], ['integrated', 'Integrated camera'], ['usb', 'USB camera']] },
+    { key: 'noiseSuppression', section: 'media', type: 'toggle', label: 'Noise suppression', default: true,
+      hint: 'Filter background noise on calls' },
+
+    // ---- Language
+    { key: 'language', section: 'language', type: 'select', label: 'Language', default: 'en', options: [['en', 'English']] },
 
     // ---- Classification
     { key: 'classification', section: 'classification', type: 'select', label: 'Classification marking', default: 'unclassified',

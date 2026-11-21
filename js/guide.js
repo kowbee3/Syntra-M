@@ -71,7 +71,7 @@
       html: function () {
         return '<h2>Messaging</h2>' +
           '<h3>Start a conversation</h3><p>Click the pencil icon above your chat list (' + kbd('Ctrl N') + '). Pick one person for a direct chat, or several to create a group. You can also open anyone from the <b>Directory</b>.</p>' +
-          '<h3>Send</h3><p>Press ' + kbd('Enter') + ' to send and ' + kbd('Shift Enter') + ' for a new line. You can switch to ' + kbd('Ctrl Enter') + ' in Settings › Chats. Unsent text is kept as a draft.</p>' +
+          '<h3>Send</h3><p>Press ' + kbd('Enter') + ' to send and ' + kbd('Shift Enter') + ' for a new line. You can switch to ' + kbd('Ctrl Enter') + ' in Settings › General Settings › Keyboard. Unsent text is kept as a draft.</p>' +
           '<h3>Message actions</h3><p>Hover over a message (or right-click, or press and hold on a touch screen) to:</p><ul>' +
           '<li><b>React</b> with an emoji. Double-click a message for a quick 👍.</li>' +
           '<li><b>Reply</b> to quote it. Press ' + kbd('↑') + ' in an empty message box to reply to the last message you received.</li>' +
@@ -99,17 +99,21 @@
           '<h3>Screen lock</h3><p>Syntra locks itself after a period of inactivity. Lock it yourself with ' + kbd('Ctrl L') + ' whenever you leave your desk.</p>' +
           '<h3>Classification banner</h3><p>The coloured bar at the top shows the highest classification allowed on this system. Never send information above that level.</p>' +
           '<h3>Lost or stolen computer</h3><p>Tell an Admin straight away. They can remotely lock the device or wipe Syntra’s data from it.</p>' +
-          '<h3>Signing out</h3><p>Click your avatar at the bottom-left, then <b>Sign out</b>.</p>';
+          '<h3>Signing out</h3><p>Open the ' + icon('menu') + ' menu › <b>More</b> › <b>Sign Out</b>, or scroll to the bottom of <b>Settings</b>. If you are locked out of the lock screen, use <b>Forgot PIN? Sign out</b>.</p>';
       }
     },
     {
       id: 'customize', title: 'Customizing Syntra', icon: 'settings',
       html: function () {
-        return '<h2>Customizing Syntra</h2><p>Open Settings with the gear icon or ' + kbd('Ctrl ,') + '.</p><ul>' +
-          '<li><b>Appearance:</b> Light, Dark, System or <b>Night ops</b> theme (red on black to protect night vision), accent color, chat background, bubble shape, corners, font and text size.</li>' +
-          '<li><b>Layout:</b> density, chat list width (or drag its edge), bubbles or list view, avatars, 24 or 12-hour time.</li>' +
-          '<li><b>Accessibility:</b> reduce or turn off animations, high contrast, always-visible focus outlines.</li>' +
-          '<li><b>Backup & reset:</b> export your settings to a file and import them on another computer.</li></ul>' +
+        return '<h2>Customizing Syntra</h2><p>Open Settings from the ' + icon('menu') + ' menu, the gear icon, your avatar, or ' + kbd('Ctrl ,') + '. Settings slide in over your chat list so you can see changes in the open chat straight away. Use ' + icon('search') + ' to search all settings.</p><ul>' +
+          '<li><b>Notifications and Sounds:</b> alerts, sounds, hiding message text, Flash confirmation.</li>' +
+          '<li><b>Data and Storage:</b> storage used, clearing the cache, automatic downloads, and backing up your settings to a file.</li>' +
+          '<li><b>Privacy and Security:</b> read receipts, typing indicators, default disappearing timer, screen lock.</li>' +
+          '<li><b>General Settings:</b> text size, chat wallpaper, power saving (animations), color theme and accent, Day / Dark / <b>Night ops</b> / System theme, time format, send key, bubbles, font and layout.</li>' +
+          '<li><b>Chat Folders:</b> choose which filters (Unread, Direct, Groups, Priority) appear above your chats.</li>' +
+          '<li><b>Emoji and Reactions:</b> large emoji, and the quick reaction used when you double-click a message.</li>' +
+          '<li><b>Speakers and Camera</b>, <b>Devices</b> (sign out other sessions), <b>Language</b>, <b>Accessibility</b> and <b>Keyboard Shortcuts</b>.</li></ul>' +
+          '<p>The ' + icon('menu') + ' menu also has quick switches under <b>More</b>: dark mode, reduce animations, lock and sign out.</p>' +
           tip('Settings marked ' + icon('lock') + ' <b>Managed</b> are enforced by your Super Admin and can’t be changed.');
       }
     },

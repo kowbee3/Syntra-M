@@ -298,9 +298,25 @@
   // ---------------------------------------------------------
   var VIEW_TITLES = { chats: 'Chats', channels: 'Channels', contacts: 'Directory', calls: 'Calls', saved: 'Saved', admin: 'Admin console' };
 
+  // Chat folders shown as chips; which ones appear is a user setting (Settings › Chat Folders)
+  var FOLDERS = [['all', 'All', null], ['unread', 'Unread', 'folderUnread'], ['direct', 'Direct', 'folderDirect'],
+    ['group', 'Groups', 'folderGroups'], ['priority', 'Priority', 'folderPriority']];
+  function renderChips() {
+    var shown = FOLDERS.filter(function (f) { return !f[2] || state.settings[f[2]]; });
+    if (!shown.some(function (f) { return f[0] === state.filter; })) { state.filter = 'all'; state.animateList = true; }
+    var unread = D.conversations.filter(function (c) { return c.unread && !c.muted; }).length;
+    var html = shown.map(function (f) {
+      return '<button class="chip' + (f[0] === state.filter ? ' active' : '') + '" data-filter="' + f[0] + '">' + f[1] +
+        (f[0] === 'unread' && unread ? '<span class="chip-count">' + unread + '</span>' : '') + '</button>';
+    }).join('');
+    var box = $('#filterChips');
+    if (box._html !== html) { box.innerHTML = html; box._html = html; }
+    box.classList.toggle('hidden', state.view !== 'chats' || shown.length < 2);
+  }
+
   function renderList() {
     $('#listTitle').textContent = VIEW_TITLES[state.view];
-    $('#filterChips').classList.toggle('hidden', state.view !== 'chats');
+    renderChips();
     $('.sidebar .search').classList.toggle('hidden', state.view === 'admin');
     $('#newChatBtn').classList.toggle('hidden', state.view === 'admin');
     $$('.rail-btn[data-view]').forEach(function (b) { b.classList.toggle('active', b.dataset.view === state.view); });
@@ -746,6 +762,7 @@
     }
 
     var bubbleCls = 'bubble' + (m.prec === 'flash' ? ' prec-flash' : m.prec === 'immediate' ? ' prec-immediate' : '');
+    if (state.settings.largeEmoji && !m.type && !m.replyTo && !m.prec && isEmojiOnly(m.text)) bubbleCls += ' b-emoji';
     return '<div class="' + cls + '" data-id="' + m.id + '">' +
       (mine && !listMode ? '' : userAvatar(u)) +
       '<div class="msg-col"><div class="' + bubbleCls + '">' + b + '</div>' + reacts + '</div>' +
@@ -755,6 +772,45 @@
         '<button data-hover="more" title="More">' + icon('more') + '</button>' +
       '</div></div>';
   }
+
+  // 1–3 emoji and nothing else → shown large (Settings › Emoji and Reactions)
+  var EMOJI_RE;
+  try { EMOJI_RE = new RegExp('^(?:\\p{Extended_Pictographic}(?:\\uFE0F|\\u200D\\p{Extended_Pictographic}|\\p{Emoji_Modifier})*\\s*){1,3}$', 'u'); } catch (e) { EMOJI_RE = null; }
+  function isEmojiOnly(t) { return !!(EMOJI_RE && t && t.length <= 24 && EMOJI_RE.test(t.trim())); }
+
+  // Syntra's own doodle pattern (used by the sign-in screen and the "Doodles" chat background)
+  function doodleTile() {
+    var P = {
+      lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+      shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z"/><path d="m9 12 2 2 4-4"/>',
+      chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/>',
+      pin: '<path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
+      star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/>',
+      signal: '<path d="M4 20v-3M9 20v-7M14 20v-11M19 20V4"/>',
+      compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/>',
+      radio: '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M7 9 17 3M7 15h4"/><circle cx="16" cy="15" r="2.2"/>',
+      bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+      key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3"/>',
+      mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+      sat: '<path d="M4 10a8 8 0 0 1 10 10M4 14a4 4 0 0 1 6 6"/><circle cx="5" cy="19" r="1.4"/>',
+      flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+      tent: '<path d="M3 20 12 5l9 15ZM12 5v15M9 20l3-5 3 5"/>',
+      globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+      heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/>'
+    };
+    var place = [
+      ['lock', 18, 22, -12], ['star', 92, 12, 8], ['chat', 160, 40, 6], ['signal', 236, 16, -8], ['compass', 300, 46, 14],
+      ['radio', 40, 98, 10], ['pin', 118, 84, -6], ['shield', 196, 110, 4], ['mail', 270, 112, -14], ['sat', 330, 160, 20],
+      ['bell', 14, 176, 18], ['key', 84, 160, -22], ['tent', 150, 186, 0], ['flag', 230, 196, 10], ['globe', 296, 236, -6],
+      ['heart', 40, 256, 12], ['star', 112, 244, -18], ['chat', 186, 272, -10], ['lock', 254, 300, 16], ['signal', 330, 312, 6],
+      ['shield', 22, 320, -10], ['compass', 92, 318, 8], ['pin', 166, 342, 12], ['radio', 300, 0, -4]
+    ];
+    var g = place.map(function (p) {
+      return '<g transform="translate(' + p[1] + ' ' + p[2] + ') rotate(' + p[3] + ' 12 12) scale(1.15)">' + P[p[0]] + '</g>';
+    }).join('');
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="360" viewBox="0 0 360 360" fill="none" stroke="#000" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + g + '</svg>';
+  }
+  root.style.setProperty('--doodle', 'url("data:image/svg+xml,' + encodeURIComponent(doodleTile()) + '")');
 
   function highlightMsg(id) {
     var row = $('#messages [data-id="' + id + '"]');
@@ -1319,188 +1375,8 @@
     });
   }
 
-  // Profile
-  function profileModal() {
-    var m = openModal('My profile',
-      '<div class="modal-body">' +
-        '<div class="info-hero" style="padding-top:4px">' + userAvatar(me, 'lg') + '<h2>' + esc(fullName(me)) + '</h2><p>' + esc(me.role) + ' · ' + esc(me.callsign) + '</p>' +
-          '<span class="role-badge role-' + session.role + '">' + roleLabel() + '</span></div>' +
-        '<div class="set-row"><div class="set-label"><b>Status</b><small>Visible to your contacts</small></div>' +
-          '<select id="pfStatus">' + ['online', 'away', 'dnd', 'offline'].map(function (s) {
-            return '<option value="' + s + '"' + (me.status === s ? ' selected' : '') + '>' + statusText(s) + '</option>';
-          }).join('') + '</select></div>' +
-        field('Unit', me.unit) + field('Callsign', me.callsign) + field('Username', me.username) + field('Account type', roleLabel()) +
-      '</div>',
-      '<button class="btn danger" id="pfSignOut" style="margin-right:auto">' + icon('logout') + 'Sign out</button><button class="btn primary" data-close>Done</button>');
-    $('#pfSignOut', m).addEventListener('click', signOut);
-    $('#pfStatus', m).addEventListener('change', function () {
-      me.status = this.value;
-      $('#mePresence').className = 'presence ' + me.status;
-      toast('Status set to ' + statusText(me.status));
-    });
-  }
-
-  // Settings — generated from the schema in settings.js
-  function settingsModal(section) {
-    section = section || 'appearance';
-    var m = openModal('Settings',
-      '<div class="settings"><nav class="settings-nav">' + S.SECTIONS.map(function (s) {
-        return '<button data-tab="' + s.id + '">' + icon(s.icon) + '<span>' + s.label + '</span></button>';
-      }).join('') + '<button id="setSignOut" class="nav-signout">' + icon('logout') + '<span>Sign out</span></button>' +
-      '</nav><div class="settings-pane" id="setPane"></div></div>', '', 'wide settings-modal');
-    var current = section;
-
-    function control(e) {
-      var v = S.get(e.key), dis = S.isLocked(e.key) ? ' disabled' : '';
-      switch (e.type) {
-        case 'toggle':
-          return '<label class="switch"><input type="checkbox" data-key="' + e.key + '"' + (v ? ' checked' : '') + dis + '><span></span></label>';
-        case 'segment':
-          return '<div class="seg" data-key="' + e.key + '">' + e.options.map(function (o) {
-            return '<button data-v="' + o[0] + '" class="' + (String(v) === String(o[0]) ? 'active' : '') + '"' + dis + '>' + o[1] + '</button>';
-          }).join('') + '</div>';
-        case 'select':
-          return '<select data-key="' + e.key + '"' + dis + '>' + e.options.map(function (o) {
-            return '<option value="' + o[0] + '"' + (String(v) === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>';
-          }).join('') + '</select>';
-        case 'range':
-          return '<div class="range-wrap"><input type="range" class="range" data-key="' + e.key + '" min="' + e.min + '" max="' + e.max +
-            '" step="' + e.step + '" value="' + v + '"' + dis + '><output>' + v + (e.unit || '') + '</output></div>';
-        case 'accent':
-          var custom = !ACCENTS[v];
-          return '<div class="accent-swatches">' + Object.keys(ACCENTS).map(function (k) {
-            return '<button data-accent="' + k + '" title="' + ACCENTS[k].label + '" class="' + (v === k ? 'active' : '') + '" style="background:' + ACCENTS[k].light + '"></button>';
-          }).join('') + '<label class="swatch-custom' + (custom ? ' active' : '') + '" title="Custom color"' + (custom ? ' style="background:' + v + '"' : '') + '>' +
-            '<input type="color" data-color="accent" value="' + (custom ? v : ACCENTS[v].light) + '"></label></div>';
-        case 'wallpaper':
-          return '<div class="wp-tiles">' + e.options.map(function (o) {
-            return '<button class="wp-tile wp-' + o[0] + (v === o[0] ? ' active' : '') + '" data-wp="' + o[0] + '" title="' + o[1] + '"><span>' + o[1] + '</span></button>';
-          }).join('') + '</div>';
-      }
-      return '';
-    }
-
-    function rowHTML(e) {
-      var wide = e.type === 'wallpaper' || e.type === 'accent';
-      var locked = S.isLocked(e.key);
-      var hint = locked
-        ? (can('policy') ? 'Enforced for everyone. Change it in Admin console › Security policy.' : 'Set by your Super Admin for all users.')
-        : e.hint;
-      return '<div class="set-row' + (wide ? ' wide' : '') + (locked ? ' locked' : '') + '"><div class="set-label"><b>' + e.label + (locked ? ' <span class="lock-tag">' + icon('lock') + 'Managed</span>' : '') + '</b>' +
-        (hint ? '<small>' + hint + '</small>' : '') + '</div>' + control(e) + '</div>';
-    }
-
-    function previewHTML() {
-      var t1 = Date.now() - 120000, t2 = Date.now() - 60000;
-      return '<div class="set-preview"><div class="set-preview-chat">' +
-        '<div class="msg-row in first last">' + userAvatar(users.u1) + '<div class="msg-col"><div class="bubble">' +
-          (state.settings.messageLayout === 'list' ? '<div class="b-sender" style="--sc:' + users.u1.color + '">CPT Jordan Hale<small>' + fmtTime(t1) + '</small></div>' : '') +
-          '<span class="b-text">Radio check, how copy?</span><span class="b-meta">' + fmtTime(t1) + '</span></div></div></div>' +
-        '<div class="msg-row out first last">' + (state.settings.messageLayout === 'list' ? userAvatar(me) : '') + '<div class="msg-col"><div class="bubble">' +
-          (state.settings.messageLayout === 'list' ? '<div class="b-sender" style="--sc:' + me.color + '">SSG Alex Morgan<small>' + fmtTime(t2) + '</small></div>' : '') +
-          '<span class="b-text">Loud and clear. Over.</span><span class="b-meta">' + fmtTime(t2) + icon('check2', 'read') + '</span></div></div></div>' +
-      '</div></div>';
-    }
-
-    function draw(sec) {
-      current = sec;
-      var h = '';
-      if (sec === 'data') {
-        h = '<h4>Backup</h4>' +
-          '<div class="set-row"><div class="set-label"><b>Export settings</b><small>Save your preferences as a file to move them to another computer</small></div>' +
-            '<button class="btn" id="setExport">' + icon('download') + 'Export</button></div>' +
-          '<div class="set-row"><div class="set-label"><b>Import settings</b><small>Load a previously exported Syntra settings file</small></div>' +
-            '<button class="btn" id="setImport">' + icon('upload') + 'Import</button></div>' +
-          '<h4>Reset</h4>' +
-          '<div class="set-row"><div class="set-label"><b>Reset all settings</b><small>Restore every preference to its default</small></div>' +
-            '<button class="btn danger" id="setResetAll">' + icon('reset') + 'Reset</button></div>' +
-          '<p class="set-note">Settings format v' + S.VERSION + ' · stored only on this device. Older settings files are upgraded automatically when imported.</p>';
-      } else if (sec === 'about') {
-        h = '<div class="info-hero">' + $('.rail-logo').innerHTML.replace('width="30" height="30"', 'width="64" height="64"') +
-          '<h2>Syntra</h2><p>Secure messaging · Front-end prototype v0.3.0</p>' +
-          '<p>Signed in as ' + esc(fullName(me)) + ' · ' + roleLabel() + '</p>' +
-          '<button class="btn" data-guide="start" style="margin-top:10px">' + icon('book') + 'Open user guide</button></div>' +
-          '<h4>Keyboard shortcuts</h4>' +
-          [['Ctrl K', 'Search'], ['Ctrl N', 'New message'], ['Ctrl F', 'Search in conversation'], ['Ctrl D', 'Toggle dark mode'], ['Ctrl ,', 'Settings'], ['Ctrl L', 'Lock'], ['Ctrl 1–4', 'Switch section'], ['Alt ↑ / ↓', 'Previous / next chat'], ['Esc', 'Close panel / go back']].map(function (k) {
-            return '<div class="info-field"><span>' + k[1] + '</span><span>' + k[0].split(' ').map(function (x) { return '<kbd>' + x + '</kbd>'; }).join('') + '</span></div>';
-          }).join('');
-      } else {
-        var meta = S.SECTIONS.filter(function (s) { return s.id === sec; })[0];
-        h = '<div class="set-head"><h4>' + meta.label + '</h4><button class="link-btn" id="setResetSec">' + icon('reset') + 'Reset section</button></div>';
-        if (sec === 'appearance' || sec === 'layout') h += previewHTML();
-        h += S.SCHEMA.filter(function (e) { return e.section === sec; }).map(rowHTML).join('');
-        if (sec === 'classification') h += '<p class="set-note">Prototype only. In production this marking is set by the system administrator and locked for users.</p>';
-        if (sec === 'privacy') h += '<div class="set-row"><div class="set-label"><b>Lock now</b><small>Shortcut: Ctrl+L</small></div><button class="btn" id="setLockNow">Lock</button></div>';
-      }
-      var pane = $('#setPane', m);
-      pane.innerHTML = h;
-      pane.classList.remove('swap'); void pane.offsetWidth; pane.classList.add('swap');
-      $$('.settings-nav button', m).forEach(function (b) { b.classList.toggle('active', b.dataset.tab === sec); });
-    }
-
-    // Refresh only the preview (keeps focus on sliders while dragging)
-    function refreshPreview() {
-      var p = $('.set-preview', m);
-      if (p) p.outerHTML = previewHTML();
-    }
-
-    m.addEventListener('click', function (e) {
-      var t = e.target.closest('[data-tab]'); if (t) { draw(t.dataset.tab); return; }
-      var sg = e.target.closest('.seg[data-key] button');
-      if (sg) {
-        S.set(sg.parentNode.dataset.key, sg.dataset.v);
-        $$('button', sg.parentNode).forEach(function (b) { b.classList.toggle('active', b === sg); });
-        refreshPreview(); return;
-      }
-      var ac = e.target.closest('[data-accent]');
-      if (ac) { S.set('accent', ac.dataset.accent); draw(current); return; }
-      var wp = e.target.closest('[data-wp]');
-      if (wp) { S.set('wallpaper', wp.dataset.wp); $$('[data-wp]', m).forEach(function (b) { b.classList.toggle('active', b === wp); }); return; }
-      var id = e.target.closest('button') && e.target.closest('button').id;
-      if (id === 'setResetSec') { S.reset(current); draw(current); toast(icon('reset') + 'Section reset to defaults'); }
-      else if (id === 'setResetAll') {
-        askConfirm({ title: 'Reset all settings?', message: 'Every preference returns to its default. Settings managed by your Super Admin stay as they are.', confirmLabel: 'Reset', danger: true, icon: 'reset' })
-          .then(function (ok) { if (ok) { S.reset(); draw(current); toast(icon('reset') + 'All settings reset'); } });
-      }
-      else if (id === 'setSignOut') signOut();
-      else if (id === 'setExport') {
-        var blob = new Blob([S.exportJSON()], { type: 'application/json' });
-        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'syntra-settings.json'; a.click();
-        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-        toast(icon('download') + 'Settings exported');
-      }
-      else if (id === 'setImport') {
-        pickFile('application/json,.json', function (f) {
-          f.text().then(function (txt) {
-            var r = S.importJSON(txt);
-            toast(r.ok ? icon('check') + 'Imported ' + r.count + ' settings' : icon('alert') + r.error);
-            draw(current);
-          });
-        });
-      }
-      else if (id === 'setLockNow') { closeModal(); lock(); }
-    });
-    m.addEventListener('input', function (e) {
-      var el = e.target;
-      if (el.type === 'range' && el.dataset.key) {
-        S.set(el.dataset.key, el.value);
-        var en = S.entry(el.dataset.key);
-        el.nextElementSibling.textContent = el.value + (en.unit || '');
-      }
-      if (el.dataset.color) {
-        S.set('accent', el.value);
-        var lbl = el.parentNode; lbl.style.background = el.value; lbl.classList.add('active');
-        $$('[data-accent]', m).forEach(function (b) { b.classList.remove('active'); });
-      }
-    });
-    m.addEventListener('change', function (e) {
-      var el = e.target;
-      if (!el.dataset.key || el.type === 'range') return;
-      S.set(el.dataset.key, el.type === 'checkbox' ? el.checked : el.value);
-      refreshPreview();
-    });
-    draw(section);
-  }
+  // Settings and profile live in the Telegram-style settings column (settings-panel.js)
+  function openSettings(page) { if (window.SyntraSettingsPanel) window.SyntraSettingsPanel.open(page); }
 
   // ---------------------------------------------------------
   // Calls
@@ -1629,8 +1505,8 @@
     });
     bindLogin();
     $('#lockBtn').addEventListener('click', lock);
-    $('#settingsBtn').addEventListener('click', function () { settingsModal(); });
-    $('#meBtn').addEventListener('click', profileModal);
+    $('#settingsBtn').addEventListener('click', function () { openSettings(); });
+    $('#meBtn').addEventListener('click', function () { openSettings(); });
     $('#newChatBtn').addEventListener('click', newChatModal);
 
     // Search & filters
@@ -1643,7 +1519,6 @@
       var c = e.target.closest('.chip'); if (!c) return;
       state.filter = c.dataset.filter;
       state.animateList = true;
-      $$('.chip', this).forEach(function (x) { x.classList.toggle('active', x === c); });
       renderList();
     });
 
@@ -1746,7 +1621,7 @@
     box.addEventListener('dblclick', function (e) {
       var row = e.target.closest('.msg-row'); if (!row || e.target.closest('.reactions, .msg-hover')) return;
       var sel = window.getSelection(); if (sel) sel.removeAllRanges();
-      msgAction('react', row.dataset.id, '👍');
+      msgAction('react', row.dataset.id, state.settings.quickReaction || '👍');
     });
 
     // Context menu
@@ -1859,17 +1734,21 @@
       else if (mod && k === 'n') { e.preventDefault(); newChatModal(); }
       else if (mod && k === 'l') { e.preventDefault(); lock(); }
       else if (mod && k === 'd') { e.preventDefault(); toggleTheme(); }
-      else if (mod && k === ',') { e.preventDefault(); settingsModal(); }
+      else if (mod && k === ',') { e.preventDefault(); openSettings(); }
       else if (mod && k === 'f' && active()) { e.preventDefault(); openMsgSearch(); }
       else if (mod && /^[1-4]$/.test(k)) { e.preventDefault(); setView(['chats', 'channels', 'contacts', 'calls'][+k - 1]); }
       else if (e.altKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); cycleConv(e.key === 'ArrowDown' ? 1 : -1); }
       else if (e.key === 'Escape') {
-        if (!$('#ctxMenu').classList.contains('hidden')) closeCtx();
+        var SP = window.SyntraSettingsPanel;
+        if (document.querySelector('.confirm-backdrop')) return;
+        if (SP && SP.menuOpen()) SP.closeMenu();
+        else if (!$('#ctxMenu').classList.contains('hidden')) closeCtx();
         else if ($$('.popover:not(.hidden)').length) closePopovers();
         else if (modalOpen()) closeModal();
         else if (!$('#callOverlay').classList.contains('hidden')) endCall();
         else if (state.replyTo) { state.replyTo = null; renderReply(); }
         else if (!$('#infoPanel').classList.contains('hidden')) toggleInfo(false);
+        else if (SP && SP.isOpen()) SP.back();
         else if (isNarrow() && !$('#adminPane').classList.contains('hidden')) leaveAdminPane();
         else if (isNarrow() && state.activeId) closeConv();
       }
@@ -1929,10 +1808,10 @@
     applyAppearance();
     applyAttachPolicy();
     var all = key === '*';
-    if (active() && (all || ['timeFormat', 'messageLayout', 'showAvatars', 'readReceipts', 'typingIndicators'].indexOf(key) !== -1)) {
+    if (active() && (all || ['timeFormat', 'messageLayout', 'showAvatars', 'readReceipts', 'typingIndicators', 'largeEmoji'].indexOf(key) !== -1)) {
       renderMessages(true); renderChatSub();
     }
-    if (all || key === 'timeFormat') renderList();
+    if (session && (all || key === 'timeFormat' || /^folder/.test(key))) renderList();
     if (all || key === 'autoLock') resetIdle();
     if (window.SyntraAdmin) window.SyntraAdmin.refresh();
   }
@@ -1952,7 +1831,58 @@
     $('#loginUser').value = D.personas[r].username;
     $('#loginPass').value = '';
     $('#loginError').classList.add('hidden');
+    $('#qrRole').textContent = roleLabel(r);
     if (focus) $('#loginPass').focus();
+  }
+
+  // ---- QR sign-in (demo: the code is random; a backend would issue a one-time token)
+  var qrTimer = null, qrLeft = 30;
+  function drawQR() {
+    var n = 29, cells = '', rnd = Math.random;
+    var finder = function (x, y) {
+      var f = [[0, 0], [n - 7, 0], [0, n - 7]];
+      for (var i = 0; i < 3; i++) if (x >= f[i][0] && x < f[i][0] + 7 && y >= f[i][1] && y < f[i][1] + 7) return [x - f[i][0], y - f[i][1]];
+      return null;
+    };
+    for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+      var f = finder(x, y);
+      if (f) continue;
+      if (Math.abs(x - 14) <= 4 && Math.abs(y - 14) <= 4) continue;          // logo hole
+      var nearFinder = finder(x - 1, y) || finder(x + 1, y) || finder(x, y - 1) || finder(x, y + 1);
+      if (nearFinder) continue;
+      if (rnd() > .52) cells += '<rect x="' + (x + .08) + '" y="' + (y + .08) + '" width=".84" height=".84" rx=".38"/>';
+    }
+    [[0, 0], [n - 7, 0], [0, n - 7]].forEach(function (p) {
+      cells += '<rect x="' + (p[0] + .5) + '" y="' + (p[1] + .5) + '" width="6" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1"/>' +
+        '<rect x="' + (p[0] + 2) + '" y="' + (p[1] + 2) + '" width="3" height="3" rx=".9"/>';
+    });
+    var svg = $('#loginQr');
+    svg.innerHTML = cells;
+    if (svg.animate && root.dataset.motion !== 'off') svg.animate([{ opacity: .2, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 350, easing: 'ease-out' });
+  }
+  function startQR() {
+    drawQR(); qrLeft = 30;
+    clearInterval(qrTimer);
+    qrTimer = setInterval(function () {
+      qrLeft--;
+      if (qrLeft <= 0) { drawQR(); qrLeft = 30; }
+      $('#qrTimer').textContent = 'code refreshes in ' + qrLeft + 's';
+    }, 1000);
+  }
+  function stopQR() { clearInterval(qrTimer); qrTimer = null; }
+
+  // Switch the sign-in card between views with a smooth height change
+  function loginView(name) {
+    var card = $('#loginCard');
+    var from = card.offsetHeight;
+    $$('.lc-view', card).forEach(function (v) { v.classList.toggle('hidden', v.dataset.lview !== name); });
+    card.dataset.view = name;
+    var to = card.offsetHeight;
+    if (card.animate && root.dataset.motion !== 'off') {
+      card.animate([{ height: from + 'px' }, { height: to + 'px' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      $('.lc-view:not(.hidden)', card).animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'ease-out' });
+    }
+    if (name === 'qr') startQR(); else { stopQR(); if (!isNarrow()) $('#loginPass').focus(); }
   }
 
   function loginError(msg) {
@@ -1987,6 +1917,14 @@
       toast(icon('card') + 'Smart-card sign-in will be available with the backend');
     });
     $('#loginGuide').addEventListener('click', function () { openGuide('start'); });
+    $('#loginCard').addEventListener('click', function (e) {
+      var v = e.target.closest('[data-goview]'); if (v) loginView(v.dataset.goview);
+    });
+    $('#qrSimulate').addEventListener('click', function () {
+      stopQR();
+      toast(icon('check') + 'Scan confirmed on phone');
+      signIn({ role: loginRole, username: D.personas[loginRole].username, remember: false });
+    });
     $('#loginForm').addEventListener('submit', function (e) {
       e.preventDefault();
       var u = $('#loginUser').value.trim(), p = $('#loginPass').value;
@@ -2009,6 +1947,7 @@
   }
 
   function signIn(s) {
+    stopQR();
     session = s;
     saveSession(s);
     hideEl($('#login'), 300);
@@ -2067,7 +2006,9 @@
     fmtTime: fmtTime, fmtListTime: fmtListTime, fmtDay: fmtDay,
     can: can, roleLabel: roleLabel, getSession: function () { return session; }, ROLES: ROLES, PREC: PREC,
     state: state, S: S, D: D, me: me, users: users, user: user, getConv: getConv, convTitle: convTitle, findMsg: findMsg,
-    renderList: renderList, openConv: openConv, setView: setView, leaveAdminPane: leaveAdminPane, pickFile: pickFile
+    renderList: renderList, openConv: openConv, closeConv: closeConv, setView: setView, leaveAdminPane: leaveAdminPane, pickFile: pickFile,
+    lock: lock, signOut: signOut, openGuide: openGuide, toggleTheme: toggleTheme,
+    pendingAdmin: function () { return window.SyntraAdmin ? window.SyntraAdmin.pendingCount() : 0; }
   };
 
   init();
